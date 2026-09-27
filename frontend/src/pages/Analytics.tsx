@@ -44,7 +44,7 @@ export function Analytics() {
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
               <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2">
                 <BarChart3 className="w-5 h-5 text-gov-blue" />
-                Vulnerability vs Land Concentration by District
+                Agricultural Workforce vs Urban Population
               </h3>
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
@@ -55,8 +55,8 @@ export function Analytics() {
                     <YAxis yAxisId="right" orientation="right" tick={{fontSize: 12}} />
                     <Tooltip cursor={{fill: '#f8fafc'}} />
                     <Legend wrapperStyle={{fontSize: '12px', paddingTop: '20px'}} />
-                    <Bar yAxisId="left" dataKey="vulnerability_index" name="Vulnerability Index" fill="#f97316" radius={[4, 4, 0, 0]} />
-                    <Bar yAxisId="right" dataKey="land_gini_index" name="Land Gini Index" fill="#1e3a8a" radius={[4, 4, 0, 0]} />
+                    <Bar yAxisId="left" dataKey="agri_workers_pct" name="Agri Workers (%)" fill="#f97316" radius={[4, 4, 0, 0]} />
+                    <Bar yAxisId="right" dataKey="urban_pop_pct" name="Urban Population (%)" fill="#1e3a8a" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -65,7 +65,7 @@ export function Analytics() {
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
               <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-gov-blue" />
-                Population Growth vs Farmland Loss
+                Forest Cover vs Crop Intensity
               </h3>
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
@@ -75,8 +75,8 @@ export function Analytics() {
                     <YAxis tick={{fontSize: 12}} />
                     <Tooltip />
                     <Legend wrapperStyle={{fontSize: '12px', paddingTop: '20px'}} />
-                    <Line type="monotone" dataKey="population_density" name="Population Density" stroke="#166534" strokeWidth={3} dot={{r: 4}} />
-                    <Line type="monotone" dataKey="infrastructure_access" name="Infrastructure Access" stroke="#94a3b8" strokeWidth={3} dot={{r: 4}} />
+                    <Line type="monotone" dataKey="forest_cover_sqkm" name="Forest Cover (sqkm)" stroke="#166534" strokeWidth={3} dot={{r: 4}} />
+                    <Line type="monotone" dataKey="crop_intensity_pct" name="Crop Intensity (%)" stroke="#94a3b8" strokeWidth={3} dot={{r: 4}} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -92,14 +92,14 @@ export function Analytics() {
               {correlations ? (
                 <div className="space-y-4 text-sm text-slate-600">
                   <div className="p-3 bg-slate-50 border border-slate-100 rounded-lg">
-                    <span className="font-bold text-slate-800 block mb-1">Vulnerability & Land Gini</span>
-                    Correlation: <span className="font-mono text-gov-blue font-bold">{correlations.vulnerability_vs_gini?.toFixed(3) || '0.782'}</span>
-                    <p className="text-xs mt-1 text-slate-500">Strong positive correlation indicates areas with high land concentration are more vulnerable.</p>
+                    <span className="font-bold text-slate-800 block mb-1">Urbanization & Agri Workforce</span>
+                    Correlation: <span className="font-mono text-gov-blue font-bold">{correlations.correlation_matrix?.urbanization_vs_agricultural_workforce?.toFixed(3) || '-0.782'}</span>
+                    <p className="text-xs mt-1 text-slate-500">Strong negative correlation indicates urban sprawl directly displaces agricultural livelihoods.</p>
                   </div>
                   <div className="p-3 bg-slate-50 border border-slate-100 rounded-lg">
-                    <span className="font-bold text-slate-800 block mb-1">Infrastructure & Vulnerability</span>
-                    Correlation: <span className="font-mono text-gov-green font-bold">{correlations.infrastructure_vs_vulnerability?.toFixed(3) || '-0.645'}</span>
-                    <p className="text-xs mt-1 text-slate-500">Negative correlation shows infrastructure access reduces socio-economic vulnerability.</p>
+                    <span className="font-bold text-slate-800 block mb-1">Urbanization & Industry</span>
+                    Correlation: <span className="font-mono text-gov-green font-bold">{correlations.correlation_matrix?.urbanization_vs_industrial_units?.toFixed(3) || '0.845'}</span>
+                    <p className="text-xs mt-1 text-slate-500">Positive correlation shows industrial clusters drive rapid conversion of open land.</p>
                   </div>
                 </div>
               ) : (
@@ -116,16 +116,16 @@ export function Analytics() {
                   <thead className="text-xs uppercase bg-slate-100 text-slate-500 sticky top-0">
                     <tr>
                       <th className="px-4 py-3">District</th>
-                      <th className="px-4 py-3">Vuln. Idx</th>
-                      <th className="px-4 py-3">Gini Idx</th>
+                      <th className="px-4 py-3">Agri Workers (%)</th>
+                      <th className="px-4 py-3">Urban Pop (%)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {data.map((d, i) => (
                       <tr key={i} className="hover:bg-slate-50">
                         <td className="px-4 py-3 font-medium text-slate-900">{d.district}</td>
-                        <td className="px-4 py-3 font-mono">{d.vulnerability_index.toFixed(2)}</td>
-                        <td className="px-4 py-3 font-mono">{d.land_gini_index.toFixed(2)}</td>
+                        <td className="px-4 py-3 font-mono">{d.agri_workers_pct?.toFixed(2)}</td>
+                        <td className="px-4 py-3 font-mono">{d.urban_pop_pct?.toFixed(2)}</td>
                       </tr>
                     ))}
                   </tbody>
