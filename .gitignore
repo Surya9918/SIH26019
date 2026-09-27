@@ -18,3 +18,5 @@ htmlcov/
 *.egg-info/
 downloads/
 temp/
+venv/
+data/chroma/

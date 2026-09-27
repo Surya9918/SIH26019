@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Bot, Search, ShieldCheck, CornerDownLeft, FileText } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Bot, Search, ShieldCheck, CornerDownLeft, FileText, Sparkles, BookOpen } from 'lucide-react';
 import clsx from 'clsx';
 import { fetchApi } from '../services/api';
 
@@ -8,11 +8,20 @@ export function AiEvidence() {
   const [messages, setMessages] = useState<any[]>([
     {
       role: 'assistant',
-      content: 'Welcome to the National Land Governance Evidence Assistant. Ask research or statutory policy questions regarding land records modernization, agricultural land conversion, LARR compensation thresholds, or SVAMITVA cadastral mapping.',
+      content: 'Welcome to the Bhu-Setu Evidence Assistant. Ask research or statutory policy questions regarding land records modernization, agricultural land conversion, LARR compensation thresholds, or SVAMITVA cadastral mapping.',
       evidence: []
     }
   ]);
   const [loading, setLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,67 +55,90 @@ export function AiEvidence() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto h-[calc(100vh-8rem)] flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="max-w-7xl mx-auto h-[calc(100vh-10rem)] flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500 pb-4">
+      
+      {/* Header Area */}
+      <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Evidence Intelligence</h1>
-          <p className="text-slate-500 max-w-3xl leading-relaxed">
-            Dual BM25 + dense vector retrieval with strict zero-hallucination guardrails and verifiable verbatim citations.
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+            <Sparkles className="w-6 h-6 text-indigo-600" />
+            AI Evidence Assistant
+          </h1>
+          <p className="text-slate-500 text-sm mt-1 max-w-2xl font-medium">
+            Search across statutory acts and policy documents using dual BM25 + dense vector retrieval. 
+            All responses include verifiable verbatim citations.
           </p>
         </div>
-        <div className="bg-gov-green/10 text-gov-green border border-gov-green/20 px-3 py-1.5 rounded-lg flex items-center gap-2 text-sm font-bold">
+        <div className="bg-emerald-50 text-emerald-700 border border-emerald-200/60 px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs font-bold shadow-sm shrink-0">
           <ShieldCheck className="w-4 h-4" /> ZERO HALLUCINATION GUARDRAILS ACTIVE
         </div>
       </div>
 
-      <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex">
+      {/* Main Interface Layout */}
+      <div className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden flex flex-col lg:flex-row">
         
         {/* Chat Area */}
-        <div className="flex-1 flex flex-col border-r border-slate-200">
-          <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50">
-            {messages.map((m, i) => (
-              <div key={i} className={clsx("flex gap-4 max-w-3xl", m.role === 'user' ? "ml-auto" : "")}>
-                {m.role === 'assistant' && (
-                  <div className="w-8 h-8 rounded bg-gov-blue text-white flex items-center justify-center shrink-0 shadow-sm mt-1">
-                    <Bot className="w-5 h-5" />
-                  </div>
-                )}
-                
-                <div className={clsx(
-                  "p-4 rounded-xl shadow-sm text-sm leading-relaxed",
-                  m.role === 'user' ? "bg-gov-blue text-white" : "bg-white border border-slate-200 text-slate-800"
-                )}>
-                  {m.content}
-                </div>
-              </div>
-            ))}
+        <div className="flex-1 flex flex-col border-r border-slate-100 relative bg-slate-50/30">
+          <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar relative">
             
-            {loading && (
-              <div className="flex gap-4 max-w-3xl">
-                <div className="w-8 h-8 rounded bg-gov-blue text-white flex items-center justify-center shrink-0 shadow-sm mt-1 animate-pulse">
-                  <Bot className="w-5 h-5" />
+            {/* Background Decoration */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-indigo-100/50 rounded-full blur-[80px] pointer-events-none"></div>
+
+            <div className="relative z-10 flex flex-col gap-6">
+              {messages.map((m, i) => (
+                <div key={i} className={clsx("flex gap-4 max-w-3xl", m.role === 'user' ? "ml-auto" : "")}>
+                  
+                  {m.role === 'assistant' && (
+                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white flex items-center justify-center shrink-0 shadow-md shadow-indigo-200 mt-1">
+                      <Bot className="w-4 h-4" />
+                    </div>
+                  )}
+                  
+                  <div className={clsx(
+                    "p-4 rounded-2xl text-sm leading-relaxed shadow-sm",
+                    m.role === 'user' 
+                      ? "bg-indigo-600 text-white rounded-tr-sm" 
+                      : "bg-white border border-slate-100 text-slate-700 rounded-tl-sm"
+                  )}>
+                    {m.content}
+                  </div>
+
+                  {m.role === 'user' && (
+                    <div className="w-8 h-8 rounded-xl bg-slate-200 overflow-hidden shrink-0 shadow-sm mt-1 border border-slate-100">
+                      <img src="https://i.pravatar.cc/150?u=a042581f4e29026704d" alt="User" className="w-full h-full object-cover" />
+                    </div>
+                  )}
                 </div>
-                <div className="p-4 rounded-xl shadow-sm bg-white border border-slate-200 text-slate-500 flex items-center gap-2 text-sm">
-                  <Search className="w-4 h-4 animate-spin" /> Retrieving statutory evidence...
+              ))}
+              
+              {loading && (
+                <div className="flex gap-4 max-w-3xl">
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-400 to-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-1 animate-pulse">
+                    <Bot className="w-4 h-4" />
+                  </div>
+                  <div className="p-4 rounded-2xl rounded-tl-sm shadow-sm bg-white border border-indigo-100 text-indigo-500 flex items-center gap-3 text-sm font-medium">
+                    <Search className="w-4 h-4 animate-spin" /> Scanning statutory evidence & policy repositories...
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+              <div ref={messagesEndRef} />
+            </div>
           </div>
           
-          <div className="p-4 bg-white border-t border-slate-200">
-            <form onSubmit={handleSubmit} className="relative flex items-center">
+          <div className="p-4 bg-white border-t border-slate-100">
+            <form onSubmit={handleSubmit} className="relative flex items-center max-w-4xl mx-auto">
               <input 
                 type="text" 
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 placeholder="Ask about agricultural land conversion, LARR, SVAMITVA..."
-                className="w-full bg-slate-100 border-transparent focus:bg-white focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20 rounded-lg py-3 pl-4 pr-12 text-sm transition-all outline-none"
+                className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-indigo-300 focus:ring-4 focus:ring-indigo-100/50 rounded-xl py-3.5 pl-4 pr-14 text-sm transition-all outline-none shadow-sm"
                 disabled={loading}
               />
               <button 
                 type="submit" 
                 disabled={!query.trim() || loading}
-                className="absolute right-2 p-1.5 bg-gov-blue text-white rounded-md hover:bg-gov-hover disabled:opacity-50 transition-colors"
+                className="absolute right-2 p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors shadow-sm"
               >
                 <CornerDownLeft className="w-4 h-4" />
               </button>
@@ -115,32 +147,38 @@ export function AiEvidence() {
         </div>
 
         {/* Evidence Panel */}
-        <div className="w-80 bg-white flex flex-col hidden lg:flex">
-          <div className="p-4 border-b border-slate-200 bg-slate-50/50">
+        <div className="w-96 bg-slate-50/50 flex flex-col hidden lg:flex border-l border-slate-100">
+          <div className="p-5 border-b border-slate-100 bg-white flex items-center justify-between">
             <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
-              <FileText className="w-4 h-4 text-gov-blue" /> Supporting Evidence
+              <BookOpen className="w-4 h-4 text-indigo-600" /> Statutory Sources
             </h3>
+            <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">RAG</span>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar">
             {messages.length > 0 && messages[messages.length - 1].role === 'assistant' && messages[messages.length - 1].evidence?.length > 0 ? (
               messages[messages.length - 1].evidence.map((cit: any, i: number) => (
-                <div key={i} className="bg-slate-50 p-3 rounded-lg border border-slate-200 hover:border-gov-blue/30 transition-colors cursor-pointer group">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-[10px] font-bold text-gov-blue bg-gov-blue/10 px-1.5 py-0.5 rounded">Source [{i+1}]</span>
-                    <span className="text-[10px] font-medium text-slate-400">Score: {cit.score.toFixed(3)}</span>
+                <div key={i} className="bg-white p-4 rounded-xl border border-slate-100 hover:border-indigo-200 hover:shadow-md transition-all cursor-pointer group relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  
+                  <div className="flex justify-between items-start mb-3">
+                    <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded">Source [{i+1}]</span>
+                    <span className="text-[10px] font-bold text-slate-400">Score: {cit.score.toFixed(3)}</span>
                   </div>
-                  <h4 className="text-xs font-bold text-slate-800 group-hover:text-gov-blue transition-colors leading-tight mb-2">
+                  
+                  <h4 className="text-xs font-bold text-slate-800 group-hover:text-indigo-700 transition-colors leading-snug mb-2">
                     {cit.title}
                   </h4>
-                  <p className="text-[11px] text-slate-500 leading-relaxed border-l-2 border-slate-300 pl-2 italic">
+                  
+                  <div className="bg-slate-50 p-2 rounded text-[11px] text-slate-600 leading-relaxed border-l-2 border-indigo-200 italic">
                     "{cit.snippet}..."
-                  </p>
+                  </div>
                 </div>
               ))
             ) : (
-              <div className="text-center text-slate-400 text-xs mt-10">
-                <Search className="w-8 h-8 mx-auto mb-2 opacity-20" />
-                No active evidence context. Ask a question to retrieve sources.
+              <div className="text-center text-slate-400 flex flex-col items-center justify-center h-full opacity-60">
+                <Search className="w-10 h-10 mb-3 text-slate-300" />
+                <p className="text-sm font-medium">No active evidence context.</p>
+                <p className="text-xs mt-1">Ask a question to retrieve sources.</p>
               </div>
             )}
           </div>
