@@ -3,9 +3,18 @@ import os
 from pathlib import Path
 from contextlib import contextmanager
 from typing import Generator, Any, Dict, List, Optional
+import json
+
+try:
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+except ImportError:
+    psycopg2 = None
 
 DEFAULT_DB = str(Path(__file__).resolve().parent.parent.parent / "data" / "land_governance.db")
 DB_FILE = os.getenv("DATABASE_PATH", DEFAULT_DB)
+DB_TYPE = os.getenv("DB_TYPE", "sqlite") # sqlite or postgres
+POSTGRES_URL = os.getenv("DATABASE_URL", "postgresql://user:pass@localhost:5432/db")
 SCHEMA_FILE = str(Path(__file__).resolve().parent / "schema.sql")
 
 class DatabaseManager:
@@ -13,14 +22,19 @@ class DatabaseManager:
         self.db_path = db_path
         self._ensure_initialized()
 
-    def get_connection(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path, check_same_thread=False)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA foreign_keys = ON;")
-        return conn
+    def get_connection(self):
+        if DB_TYPE == "postgres":
+            if not psycopg2:
+                raise RuntimeError("psycopg2 is required for PostgreSQL. Please install it.")
+            return psycopg2.connect(POSTGRES_URL, cursor_factory=RealDictCursor)
+        else:
+            conn = sqlite3.connect(self.db_path, check_same_thread=False)
+            conn.row_factory = sqlite3.Row
+            conn.execute("PRAGMA foreign_keys = ON;")
+            return conn
 
     @contextmanager
-    def session(self) -> Generator[sqlite3.Connection, None, None]:
+    def session(self) -> Generator[Any, None, None]:
         conn = self.get_connection()
         try:
             yield conn

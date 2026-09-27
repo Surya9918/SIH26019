@@ -12,6 +12,7 @@ import { Provenance } from './pages/Provenance'
 import { Reports } from './pages/Reports'
 import { Admin } from './pages/Admin'
 import { AuditLogs } from './pages/AuditLogs'
+import { Workspaces } from './pages/Workspaces'
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
         <Route path="policy" element={<PolicyLab />} />
         <Route path="analytics" element={<Analytics />} />
         <Route path="data" element={<DataCatalog />} />
+        <Route path="workspaces" element={<Workspaces />} />
         <Route path="innovation" element={<InnovationPortal />} />
         <Route path="governance/provenance" element={<Provenance />} />
         <Route path="governance/audit" element={<AuditLogs />} />

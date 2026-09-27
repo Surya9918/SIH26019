@@ -189,3 +189,30 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 
 CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp);
+
+CREATE TABLE IF NOT EXISTS innovation_initiatives (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    type TEXT NOT NULL,
+    description TEXT,
+    status TEXT DEFAULT 'OPEN',
+    start_date TEXT,
+    end_date TEXT,
+    creator_id INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(creator_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS innovation_submissions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    initiative_id INTEGER NOT NULL,
+    submitter_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    proposal_text TEXT,
+    status TEXT DEFAULT 'SUBMITTED',
+    evaluation_score REAL,
+    submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(initiative_id) REFERENCES innovation_initiatives(id),
+    FOREIGN KEY(submitter_id) REFERENCES users(id)
+);
+

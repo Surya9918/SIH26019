@@ -10,7 +10,8 @@ import {
   Lightbulb,
   FileText,
   ShieldCheck,
-  ChevronDown
+  ChevronDown,
+  Users
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useState } from 'react';
@@ -27,6 +28,7 @@ const MENU_ITEMS = [
   { path: '/policy', label: 'Policy Lab', icon: FlaskConical },
   { path: '/analytics', label: 'Analytics', icon: LineChart },
   { path: '/data', label: 'Data', icon: Database },
+  { path: '/workspaces', label: 'Workspaces', icon: Users },
   { path: '/innovation', label: 'Innovation', icon: Lightbulb },
   { path: '/governance', label: 'Governance', icon: ShieldCheck, children: [
     { path: '/governance/provenance', label: 'Provenance' },

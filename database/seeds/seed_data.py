@@ -318,6 +318,16 @@ def seed_database():
         ("LULC 2026 Satellite Observed Classification", "lulc", "Telangana", "Rangareddy", 2026, json.dumps(lulc_2026_geojson))
     )
     print("Seeded GIS Layers.")
+    db_manager.execute_insert(
+        "INSERT INTO innovation_initiatives (title, type, description, creator_id) VALUES (?, ?, ?, ?)",
+        ("SIH26019 - Land Governance Hackathon", "Hackathon", "Build a secure, scalable, AI-enabled national research and policy innovation platform for land governance.", 1)
+    )
+    db_manager.execute_insert(
+        "INSERT INTO innovation_initiatives (title, type, description, creator_id) VALUES (?, ?, ?, ?)",
+        ("National Spatial Data Grant 2026", "Grant", "Funding for innovative approaches to integrating rural drone cadastre with multi-spectral satellite indices.", 1)
+    )
+    print("Seeded Innovation Initiatives.")
+    
     print("Database seeding completed successfully!")
 
 if __name__ == "__main__":
