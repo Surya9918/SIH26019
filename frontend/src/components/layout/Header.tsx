@@ -18,22 +18,24 @@ export function Header() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-hover:text-gov-blue transition-colors" />
           <input 
             type="text" 
+            readOnly
+            onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
             placeholder="Search research, datasets, locations, policies... (Cmd + K)"
-            className="w-full bg-slate-100 border-transparent focus:bg-white focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20 rounded-md py-2 pl-10 pr-4 text-sm transition-all"
+            className="w-full bg-slate-100 border-transparent focus:bg-white focus:border-gov-blue focus:ring-2 focus:ring-gov-blue/20 rounded-md py-2 pl-10 pr-4 text-sm transition-all cursor-pointer"
           />
         </div>
       </div>
 
       <div className="flex items-center gap-5 text-slate-500">
-        <button className="hover:text-gov-navy transition-colors relative">
+        <button onClick={() => alert("No new notifications")} className="hover:text-gov-navy transition-colors relative">
           <Bell className="w-5 h-5" />
           <span className="absolute -top-1 -right-1 w-2 h-2 bg-gov-saffron rounded-full"></span>
         </button>
-        <button className="hover:text-gov-navy transition-colors">
+        <button onClick={() => alert("Help center is opening...")} className="hover:text-gov-navy transition-colors">
           <HelpCircle className="w-5 h-5" />
         </button>
         <div className="h-6 w-px bg-slate-200"></div>
-        <button className="flex items-center gap-2 hover:text-gov-navy transition-colors">
+        <button onClick={() => alert("User profile settings...")} className="flex items-center gap-2 hover:text-gov-navy transition-colors">
           <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center">
             <User className="w-4 h-4" />
           </div>
