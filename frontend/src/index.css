@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+@theme {
+  --color-gov-navy: #0f172a;
+  --color-gov-blue: #1e3a8a;
+  --color-gov-hover: #1e40af;
+  --color-gov-muted: #64748b;
+  --color-gov-border: #e2e8f0;
+  --color-gov-bg: #f8fafc;
+  --color-gov-green: #166534;
+  --color-gov-red: #991b1b;
+  --color-gov-saffron: #f97316;
+}
+
+@layer base {
+  body {
+    @apply text-slate-900 bg-slate-50 antialiased font-sans;
+  }
+}
