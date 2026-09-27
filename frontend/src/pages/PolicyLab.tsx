@@ -17,9 +17,9 @@ export function PolicyLab() {
     try {
       const res = await fetchApi<any>('/scenarios/simulate', {
         method: 'POST',
-        body: JSON.stringify(params)
+        body: JSON.stringify({ parameters: params })
       });
-      setResults(res.results);
+      setResults(res.simulation);
     } catch (error) {
       console.error(error);
     } finally {
