@@ -216,6 +216,11 @@ class HybridSearchIndex:
                     did = r["doc_id"]
                     d_score = dense_scores.get(did, 0.0)
                     r["vector_score"] = round(d_score, 4)
+                    
+                    # Penalize completely unrelated documents that have 0 BM25 overlap
+                    if r["bm25_score"] == 0:
+                        d_score *= 0.1
+                        
                     r["score"] = round((0.7 * d_score) + (0.3 * min(1.0, r["bm25_score"] / 10.0)), 4)
                     
             except Exception:

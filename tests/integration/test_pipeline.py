@@ -27,21 +27,21 @@ class TestPlatformIntegration(unittest.TestCase):
         mock_2018 = {
             "type": "FeatureCollection",
             "features": [
-                {"properties": {"category": "Agriculture", "area_sqkm": 4850.0}},
-                {"properties": {"category": "Built-up", "area_sqkm": 1220.0}},
-                {"properties": {"category": "Forest", "area_sqkm": 1640.0}},
-                {"properties": {"category": "Waterbody", "area_sqkm": 410.0}},
-                {"properties": {"category": "Barren", "area_sqkm": 880.0}}
+                {"type": "Feature", "properties": {"category": "Agriculture", "area_sqkm": 4850.0}, "geometry": {"type": "Polygon", "coordinates": [[[0,0], [0,1], [1,1], [1,0], [0,0]]]}},
+                {"type": "Feature", "properties": {"category": "Built-up", "area_sqkm": 1220.0}, "geometry": {"type": "Polygon", "coordinates": [[[0,0], [0,1], [1,1], [1,0], [0,0]]]}},
+                {"type": "Feature", "properties": {"category": "Forest", "area_sqkm": 1640.0}, "geometry": {"type": "Polygon", "coordinates": [[[0,0], [0,1], [1,1], [1,0], [0,0]]]}},
+                {"type": "Feature", "properties": {"category": "Waterbody", "area_sqkm": 410.0}, "geometry": {"type": "Polygon", "coordinates": [[[0,0], [0,1], [1,1], [1,0], [0,0]]]}},
+                {"type": "Feature", "properties": {"category": "Barren", "area_sqkm": 880.0}, "geometry": {"type": "Polygon", "coordinates": [[[0,0], [0,1], [1,1], [1,0], [0,0]]]}}
             ]
         }
         mock_2026 = {
             "type": "FeatureCollection",
             "features": [
-                {"properties": {"category": "Agriculture", "area_sqkm": 4180.0}},
-                {"properties": {"category": "Built-up", "area_sqkm": 1940.0}},
-                {"properties": {"category": "Forest", "area_sqkm": 1580.0}},
-                {"properties": {"category": "Waterbody", "area_sqkm": 390.0}},
-                {"properties": {"category": "Barren", "area_sqkm": 910.0}}
+                {"type": "Feature", "properties": {"category": "Agriculture", "area_sqkm": 4180.0}, "geometry": {"type": "Polygon", "coordinates": [[[0,0], [0,1], [1,1], [1,0], [0,0]]]}},
+                {"type": "Feature", "properties": {"category": "Built-up", "area_sqkm": 1940.0}, "geometry": {"type": "Polygon", "coordinates": [[[0,0], [0,1], [1,1], [1,0], [0,0]]]}},
+                {"type": "Feature", "properties": {"category": "Forest", "area_sqkm": 1580.0}, "geometry": {"type": "Polygon", "coordinates": [[[0,0], [0,1], [1,1], [1,0], [0,0]]]}},
+                {"type": "Feature", "properties": {"category": "Waterbody", "area_sqkm": 390.0}, "geometry": {"type": "Polygon", "coordinates": [[[0,0], [0,1], [1,1], [1,0], [0,0]]]}},
+                {"type": "Feature", "properties": {"category": "Barren", "area_sqkm": 910.0}, "geometry": {"type": "Polygon", "coordinates": [[[0,0], [0,1], [1,1], [1,0], [0,0]]]}}
             ]
         }
         db_manager.execute_insert(
