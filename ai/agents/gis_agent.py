@@ -7,29 +7,42 @@ class AIGISAgent:
     bounding boxes, and map state changes.
     """
 
-    REGIONS = {
-        "hyderabad": {"lat": 17.3850, "lon": 78.4867, "zoom": 11, "state": "Telangana"},
-        "telangana": {"lat": 17.8749, "lon": 78.1008, "zoom": 8, "state": "Telangana"},
-        "andhra pradesh": {"lat": 15.9129, "lon": 79.7400, "zoom": 7, "state": "Andhra Pradesh"},
-        "visakhapatnam": {"lat": 17.6868, "lon": 83.2185, "zoom": 11, "state": "Andhra Pradesh"},
-        "rangareddy": {"lat": 17.3000, "lon": 78.3500, "zoom": 10, "state": "Telangana"},
-        "medchal": {"lat": 17.6200, "lon": 78.4800, "zoom": 11, "state": "Telangana"},
-        "warangal": {"lat": 17.9689, "lon": 79.5941, "zoom": 11, "state": "Telangana"},
-        "bengaluru": {"lat": 12.9716, "lon": 77.5946, "zoom": 11, "state": "Karnataka"},
-        "india": {"lat": 21.7679, "lon": 78.8718, "zoom": 5, "state": "National"}
-    }
-
     def process_command(self, user_prompt: str) -> Dict[str, Any]:
         text = user_prompt.lower()
         
         # 1. Identify Target Region
-        matched_region = "telangana"
-        for region_key in self.REGIONS:
-            if region_key in text:
-                matched_region = region_key
+        from backend.database.manager import db_manager
+        import json
+
+        # Dynamic lookup from GIS layers
+        db_layers = db_manager.execute_query("SELECT DISTINCT district, state, geojson_data FROM gis_layers")
+        matched_region = None
+        target_coords = None
+
+        for layer in db_layers:
+            dist_lower = layer["district"].lower()
+            if dist_lower != "all" and dist_lower in text:
+                matched_region = layer["district"]
+                target_coords = {"lat": 17.3850, "lon": 78.4867, "zoom": 11, "state": layer["state"]} # Centroid should be computed from geojson_data
+                # Compute centroid roughly
+                try:
+                    data = json.loads(layer["geojson_data"])
+                    coords = data["features"][0]["geometry"]["coordinates"][0][0]
+                    target_coords["lon"], target_coords["lat"] = coords[0], coords[1]
+                except (KeyError, IndexError, json.JSONDecodeError):
+                    pass
                 break
-        
-        target_coords = self.REGIONS[matched_region]
+            elif layer["state"].lower() in text:
+                matched_region = layer["state"]
+                target_coords = {"lat": 17.8749, "lon": 78.1008, "zoom": 8, "state": layer["state"]}
+                break
+
+        if not matched_region:
+            return {
+                "status": "unavailable",
+                "reason": "region_not_found",
+                "message": "Could not identify a valid spatial region from the query. Please mention a known state or district."
+            }
 
         # 2. Identify Intent & Active Layers
         active_layers = []

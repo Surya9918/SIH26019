@@ -56,34 +56,20 @@ class RemoteSensingPipeline:
         Simulates remote sensing tile acquisition and processing for Sentinel-2 / Landsat-9
         calibrated for agricultural & urban monitoring.
         """
-        # Deterministic simulation based on region
-        np.random.seed(abs(hash(region)) % (2**31 - 1))
-        dim = 64
-        # Synthetic NIR and Red bands reflecting vegetation gradient
-        nir = np.random.uniform(0.3, 0.8, size=(dim, dim))
-        red = np.random.uniform(0.05, 0.35, size=(dim, dim))
-        swir = np.random.uniform(0.1, 0.5, size=(dim, dim))
-        green = np.random.uniform(0.1, 0.4, size=(dim, dim))
+        import os
+        sentinel_api_key = os.getenv("SENTINEL_API_KEY")
+        if not sentinel_api_key:
+            return {
+                "status": "unavailable",
+                "reason": "required_data_source_not_configured",
+                "message": "Sentinel API integration requires SENTINEL_API_KEY to fetch real multispectral bands."
+            }
 
-        stats = self.compute_spectral_indices(red, nir, swir, green)
-
-        # Categorize health distribution
-        health_classification = {
-            "Dense Forest / Healthy Vegetation (NDVI > 0.6)": 28.5,
-            "Moderate Crop Cover (0.4 - 0.6)": 41.2,
-            "Sparse Grassland / Fallow (0.2 - 0.4)": 18.3,
-            "Built-up / Non-vegetated (NDVI < 0.2)": 12.0
-        }
-
+        # Real implementation would go here using the API key to fetch tiles.
         return {
-            "satellite_mission": "Sentinel-2 MultiSpectral Instrument (MSI)",
-            "spatial_resolution": f"{resolution_m} meters",
-            "cloud_cover_percentage": cloud_cover_pct,
-            "processing_level": "Level-2A (Bottom-Of-Atmosphere Reflectance)",
-            "projection": "EPSG:4326 (WGS 84)",
-            "spectral_metrics": stats,
-            "vegetation_health_breakdown_pct": health_classification,
-            "status": "PROCESSED_AND_INDEXED"
+            "status": "unavailable",
+            "reason": "not_implemented",
+            "message": "Real satellite ingestion pipeline requires active Earth Observation subscription."
         }
 
 remote_sensing_pipeline = RemoteSensingPipeline()

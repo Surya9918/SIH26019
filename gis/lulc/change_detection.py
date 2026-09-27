@@ -34,8 +34,36 @@ class LULCChangeDetectionEngine:
         custom_baseline: Dict[str, float] = None,
         custom_target: Dict[str, float] = None
     ) -> Dict[str, Any]:
-        baseline = custom_baseline or self.DEFAULT_BASELINE_2018
-        current = custom_target or self.DEFAULT_CURRENT_2026
+        from backend.database.manager import db_manager
+        import json
+
+        def get_lulc_areas(state: str, year: int) -> Dict[str, float]:
+            rows = db_manager.execute_query(
+                "SELECT geojson_data FROM gis_layers WHERE layer_type = 'lulc' AND state = ? AND year = ?",
+                (state, year)
+            )
+            if not rows:
+                return {}
+            
+            areas = {c: 0.0 for c in self.CLASSES}
+            for row in rows:
+                data = json.loads(row["geojson_data"])
+                for feature in data.get("features", []):
+                    cat = feature.get("properties", {}).get("category")
+                    area = feature.get("properties", {}).get("area_sqkm", 0.0)
+                    if cat in areas:
+                        areas[cat] += float(area)
+            return areas
+
+        baseline = custom_baseline or get_lulc_areas(region, year_from)
+        current = custom_target or get_lulc_areas(region, year_to)
+
+        if not baseline or not current:
+            return {
+                "status": "unavailable",
+                "reason": "required_data_source_not_configured",
+                "message": f"Missing LULC GIS layer data for {region} in {year_from} or {year_to}."
+            }
 
         years_elapsed = max(1, year_to - year_from)
         summary = []
@@ -56,54 +84,26 @@ class LULCChangeDetectionEngine:
                 "net_change_sqkm": diff,
                 "percentage_change": pct_change,
                 "annual_rate_sqkm_per_year": annual_rate,
-                "baseline_share_pct": round((b_val / total_baseline) * 100.0, 2),
-                "current_share_pct": round((c_val / total_current) * 100.0, 2)
+                "baseline_share_pct": round((b_val / total_baseline) * 100.0, 2) if total_baseline > 0 else 0,
+                "current_share_pct": round((c_val / total_current) * 100.0, 2) if total_current > 0 else 0
             })
 
-        # Transition matrix: rows = From (T1), cols = To (T2)
-        # Based on physical land transformation conservation rules
-        transition_matrix = {
-            "Agriculture": {
-                "Agriculture": 4180.0,
-                "Built-up": 560.0,
-                "Forest": 10.0,
-                "Waterbody": 0.0,
-                "Barren": 100.0
-            },
-            "Built-up": {
-                "Agriculture": 0.0,
-                "Built-up": 1220.0,
-                "Forest": 0.0,
-                "Waterbody": 0.0,
-                "Barren": 0.0
-            },
-            "Forest": {
-                "Agriculture": 20.0,
-                "Built-up": 40.0,
-                "Forest": 1570.0,
-                "Waterbody": 0.0,
-                "Barren": 10.0
-            },
-            "Waterbody": {
-                "Agriculture": 5.0,
-                "Built-up": 15.0,
-                "Forest": 0.0,
-                "Waterbody": 390.0,
-                "Barren": 0.0
-            },
-            "Barren": {
-                "Agriculture": 15.0,
-                "Built-up": 105.0,
-                "Forest": 0.0,
-                "Waterbody": 0.0,
-                "Barren": 760.0
-            }
-        }
+        # Transition matrix: A real implementation requires spatial intersection of T1 and T2 polygons.
+        # Since we cannot easily do vector intersections without PostGIS/Shapely, we must return an error if requested, 
+        # or just skip it if it's not possible without mock data.
+        import os
+        if not os.getenv("SPATIAL_ENGINE_ENABLED"):
+             transition_matrix = {
+                "status": "unavailable",
+                "reason": "required_data_source_not_configured",
+                "message": "Spatial intersection engine requires PostGIS or Shapely which are not configured."
+             }
+        else:
+             transition_matrix = {} # Real intersect logic would go here
 
-        # Key analytical indicators
-        agri_loss_sqkm = baseline["Agriculture"] - current["Agriculture"]
-        urban_gain_sqkm = current["Built-up"] - baseline["Built-up"]
-        urban_growth_rate = round((urban_gain_sqkm / baseline["Built-up"]) * 100.0, 2)
+        agri_loss_sqkm = baseline.get("Agriculture", 0.0) - current.get("Agriculture", 0.0)
+        urban_gain_sqkm = current.get("Built-up", 0.0) - baseline.get("Built-up", 0.0)
+        urban_growth_rate = round((urban_gain_sqkm / baseline.get("Built-up", 1.0)) * 100.0, 2) if baseline.get("Built-up") else 0.0
 
         return {
             "region": region,
@@ -112,14 +112,10 @@ class LULCChangeDetectionEngine:
             "summary": summary,
             "transition_matrix": transition_matrix,
             "insights": {
-                "primary_driver": "Rapid peri-urban growth along transport corridors and outer ring roads",
+                "primary_driver": "Computed from provided geospatial layers",
                 "agricultural_land_loss_sqkm": agri_loss_sqkm,
                 "urban_expansion_sqkm": urban_gain_sqkm,
-                "urban_expansion_rate_pct": urban_growth_rate,
-                "critical_observation": (
-                    f"Between {year_from} and {year_to}, {urban_gain_sqkm:.1f} sq km of built-up expansion occurred, "
-                    f"with {transition_matrix['Agriculture']['Built-up']:.1f} sq km (77.8%) directly converting prime agricultural land."
-                )
+                "urban_expansion_rate_pct": urban_growth_rate
             }
         }
 

@@ -5,6 +5,22 @@ from gis.lulc.change_detection import lulc_engine
 from ai.scenario_engine.simulator import policy_simulator
 
 class TestCoreModules(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        import subprocess
+        import os
+        from pathlib import Path
+        from backend.core.config import settings
+        
+        db_path = Path("data/land_governance.db")
+        if db_path.exists():
+            db_path.unlink()
+            
+        env = os.environ.copy()
+        env["SECRET_KEY"] = settings.SECRET_KEY
+        env["PYTHONPATH"] = str(Path(".").absolute())
+        subprocess.run(["python", "database/seeds/seed_data.py"], cwd=".", env=env, check=True)
+
     def test_password_hashing(self):
         pwd = "TestSecretPassword@2026"
         hashed = hash_password(pwd)

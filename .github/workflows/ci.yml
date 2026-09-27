@@ -32,13 +32,23 @@ jobs:
         pip install -r requirements.txt
 
     - name: Run Database Seeding
+      env:
+        PYTHONPATH: .
+        APP_ENV: development
+        SECRET_KEY: ci_test_secret
       run: |
         python database/seeds/seed_data.py
 
     - name: Run Unit & Integration Tests
+      env:
+        APP_ENV: development
+        SECRET_KEY: ci_test_secret
       run: |
         PYTHONPATH=. python -m unittest discover -s tests -p "test_*.py" -v
 
     - name: Security Check & Integrity Validation
+      env:
+        APP_ENV: development
+        SECRET_KEY: ci_test_secret
       run: |
         PYTHONPATH=. python -c "from backend.services.provenance_service import provenance_service; is_valid, issues = provenance_service.verify_integrity(); assert is_valid, f'Integrity failed: {issues}'; print('Ledger integrity verified!')"

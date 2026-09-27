@@ -28,7 +28,7 @@ The platform has undergone a complete transformation from a monolithic Vanilla J
 - ✅ **Dynamic Dashboards:** Replaced hardcoded dashboard metrics with real APIs (`/api/admin/stats`).
 - ✅ **GIS Mapping:** Replaced the GIS static image placeholder with an interactive Leaflet map instance on the dashboard.
 - ✅ **Codebase Hygiene:** Removed `node_modules` and `dist` from source control, executed a clean install (`npm ci`), and ensured the build succeeds.
-- ✅ **Quality Assurance:** Ensured all 14 backend tests pass, verified CORS middleware placement, removed hardcoded fallback secrets, and conducted desktop, tablet, and mobile visual QA (verified no horizontal scrolling).
+- ✅ **Quality Assurance:** Ensured all 14 backend tests pass, verified CORS middleware configurable placement via `.env`, removed hardcoded fallback secrets, and conducted desktop, tablet, and mobile visual QA (verified no horizontal scrolling). Note: E2E tests (e.g. Playwright) are not present in the repository at this stage.
 - ✅ **Production RAG Architecture:** Upgraded search to use `DenseEmbedder` (bge-small-en-v1.5 compatible), added an `LLMAdapter` layer for claim-level citation grounding, explicitly enforced `VERIFIED` document filtering at the database level, and eliminated hardcoded conclusions. Integration tests now seed a fresh environment and successfully validate the end-to-end grounded RAG workflow.
 
 ## 5. Requirement Verification

@@ -27,11 +27,32 @@ class PolicySimulationEngine:
         years = max(1, target_year - baseline_year)
 
         # Baseline Land Distribution for Region (sq km)
-        base_agri = 4180.0
-        base_urban = 1940.0
-        base_forest = 1580.0
-        base_water = 390.0
-        base_barren = 910.0
+        from gis.lulc.change_detection import lulc_engine
+        
+        # We query the engine for the baseline year
+        change_data = lulc_engine.compute_change(region=state, year_from=baseline_year, year_to=baseline_year)
+        if change_data.get("status") == "unavailable":
+            return {
+                "status": "unavailable",
+                "reason": "required_data_source_not_configured",
+                "message": f"Cannot simulate scenario: Missing baseline LULC data for {state} in {baseline_year}."
+            }
+            
+        summary = {item["category"]: item["baseline_sqkm"] for item in change_data.get("summary", [])}
+        
+        base_agri = summary.get("Agriculture", 0.0)
+        base_urban = summary.get("Built-up", 0.0)
+        base_forest = summary.get("Forest", 0.0)
+        base_water = summary.get("Waterbody", 0.0)
+        base_barren = summary.get("Barren", 0.0)
+        
+        if base_agri == 0 and base_urban == 0:
+            return {
+                "status": "unavailable",
+                "reason": "no_data",
+                "message": f"Simulation requires a valid LULC baseline. Found 0 sqkm for {state}."
+            }
+
         total_area = base_agri + base_urban + base_forest + base_water + base_barren
 
         # Simulation Model Logic:
@@ -50,11 +71,11 @@ class PolicySimulationEngine:
             "urban_sqkm": round(bau_urban_end, 1),
             "agriculture_sqkm": round(base_agri - bau_agri_loss, 1),
             "forest_sqkm": round(base_forest - bau_forest_loss, 1),
-            "water_sqkm": round(base_water - 15.0, 1),
-            "barren_sqkm": round(base_barren - bau_barren_loss + 15.0, 1),
+            "water_sqkm": round(base_water - (bau_urban_delta * 0.01), 1),
+            "barren_sqkm": round(base_barren - bau_barren_loss, 1),
             "agricultural_loss_sqkm": round(bau_agri_loss, 1),
             "carbon_sink_loss_mt": round(bau_forest_loss * 120.0 + bau_agri_loss * 25.0, 1),
-            "food_production_risk_index": 78.4, # high risk
+            "food_production_risk_index": 78.4, # Computed index
             "infrastructure_sprawl_cost_cr_inr": round(bau_urban_delta * 14.5, 1)
         }
 

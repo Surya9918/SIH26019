@@ -16,8 +16,9 @@ class TestPlatformIntegration(unittest.TestCase):
             
         env = os.environ.copy()
         env["SECRET_KEY"] = settings.SECRET_KEY
+        env["PYTHONPATH"] = str(Path(".").absolute())
         # Seed the database for integration tests
-        subprocess.run(["python", "database/seeds/seed_data.py"], cwd=".", env=env)
+        subprocess.run(["python", "database/seeds/seed_data.py"], cwd=".", env=env, check=True)
         
     def setUp(self):
         self.client = TestClient(app)

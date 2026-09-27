@@ -14,12 +14,10 @@ class Settings(BaseModel):
     DATABASE_PATH: str = os.getenv("DATABASE_PATH", str(BASE_DIR / "data" / "land_governance.db"))
     STORAGE_DIR: str = str(BASE_DIR / "data" / "storage")
     DEMO_MODE: bool = os.getenv("DEMO_DATA_MODE", "true").lower() == "true"
-    CORS_ORIGINS: list[str] = [
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://localhost:8000",
-        "https://landgov.gov.in"
-    ]
+    CORS_ORIGINS: list[str] = os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:3000,http://localhost:5173,http://localhost:8000,https://landgov.gov.in"
+    ).split(",")
 
 settings = Settings()
 

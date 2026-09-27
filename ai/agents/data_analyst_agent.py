@@ -37,18 +37,38 @@ class AIDataAnalystAgent:
         # 2. Check if user is asking for correlation
         if "correlation" in text or "relationship" in text or "relate" in text:
             corr_data = analytics_service.calculate_correlations(state=target_state)
+            if corr_data.get("status") == "insufficient_data":
+                 return {
+                     "query": user_prompt,
+                     "analysis_type": "CORRELATION_ANALYSIS",
+                     "state": target_state,
+                     "status": "unavailable",
+                     "reason": "insufficient_data",
+                     "message": "Not enough district data to calculate meaningful correlations."
+                 }
+            
+            c_ua = corr_data["correlation_matrix"]["urbanization_vs_agricultural_workforce"]
+            c_ui = corr_data["correlation_matrix"]["urbanization_vs_industrial_units"]
+            
+            explanation = f"Statistical analysis across {target_state} districts reveals that urbanization "
+            if c_ua < -0.5:
+                explanation += f"is strongly negatively correlated with agricultural workforce participation ({c_ua:.2f}). "
+            elif c_ua < 0:
+                explanation += f"is negatively correlated with agricultural workforce participation ({c_ua:.2f}). "
+            else:
+                explanation += f"shows positive correlation with agricultural workforce participation ({c_ua:.2f}). "
+                
+            if c_ui > 0.5:
+                explanation += f"Industrialization shows a strong positive correlation with built-up conversion ({c_ui:.2f})."
+            else:
+                explanation += f"Industrialization correlation with built-up conversion is {c_ui:.2f}."
+
             return {
                 "query": user_prompt,
                 "analysis_type": "CORRELATION_ANALYSIS",
                 "state": target_state,
                 "data": corr_data["correlation_matrix"],
-                "explanation": (
-                    f"Statistical analysis across {target_state} districts reveals that urbanization "
-                    f"is strongly negatively correlated with agricultural workforce participation "
-                    f"({corr_data['correlation_matrix']['urbanization_vs_agricultural_workforce']:.2f}). "
-                    f"Industrialization shows a strong positive correlation with built-up conversion "
-                    f"({corr_data['correlation_matrix']['urbanization_vs_industrial_units']:.2f})."
-                ),
+                "explanation": explanation,
                 "data_source": "District Statistical Handbook & Land Records Modernization Census"
             }
 
@@ -61,7 +81,16 @@ class AIDataAnalystAgent:
         
         found_districts = [d for d in district_names if d.lower() in text]
         if not found_districts:
-            found_districts = ["Hyderabad", "Rangareddy", "Warangal", "Medchal"]
+            found_districts = district_names[:5] # Use actual districts from DB if none specified
+
+        if not found_districts:
+             return {
+                 "query": user_prompt,
+                 "analysis_type": "DISTRICT_COMPARISON",
+                 "status": "unavailable",
+                 "reason": "no_data",
+                 "message": f"No district data found for {target_state}."
+             }
 
         rows = []
         for dist in found_districts:
@@ -73,6 +102,15 @@ class AIDataAnalystAgent:
             if row:
                 rows.append(row)
 
+        if not rows:
+            return {
+                "status": "unavailable",
+                "message": "Could not retrieve data for requested districts."
+            }
+
+        max_urban = max(rows, key=lambda x: x['urban_pop_pct'])
+        max_agri = max(rows, key=lambda x: x['agri_workers_pct'])
+
         return {
             "query": user_prompt,
             "analysis_type": "DISTRICT_COMPARISON",
@@ -81,10 +119,10 @@ class AIDataAnalystAgent:
             "table_data": rows,
             "explanation": (
                 f"Retrieved standardized socioeconomic metrics for {len(rows)} districts in {target_state}. "
-                f"Highest urbanization observed in {max(rows, key=lambda x: x['urban_pop_pct'])['district']} "
-                f"({max(rows, key=lambda x: x['urban_pop_pct'])['urban_pop_pct']}%), while "
-                f"highest agricultural workforce remains in {max(rows, key=lambda x: x['agri_workers_pct'])['district']} "
-                f"({max(rows, key=lambda x: x['agri_workers_pct'])['agri_workers_pct']}%)."
+                f"Highest urbanization observed in {max_urban['district']} "
+                f"({max_urban['urban_pop_pct']}%), while "
+                f"highest agricultural workforce remains in {max_agri['district']} "
+                f"({max_agri['agri_workers_pct']}%)."
             ),
             "data_source": "National Socioeconomic & Land Statistics Repository (DoLR/DES)"
         }
