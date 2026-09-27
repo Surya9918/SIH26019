@@ -21,7 +21,8 @@ from backend.api import (
     report_routes,
     admin_routes,
     ai_routes,
-    innovation_routes
+    innovation_routes,
+    integration_routes
 )
 
 app = FastAPI(
@@ -70,6 +71,7 @@ app.include_router(report_routes.router)
 app.include_router(admin_routes.router)
 app.include_router(ai_routes.router)
 app.include_router(innovation_routes.router)
+app.include_router(integration_routes.router)
 
 # Mount Static Files
 static_dir = Path(__file__).resolve().parent.parent / "frontend" / "dist"

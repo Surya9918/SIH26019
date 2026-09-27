@@ -11,10 +11,40 @@ class OpenAILLMAdapter(LLMAdapter):
         self.api_key = api_key
         
     def generate_answer(self, query: str, citations: List[Dict]) -> Dict[str, Any]:
-        # Here we would normally call the OpenAI API.
-        # But we don't have the openai package installed yet, so we'll mock the signature.
-        # If the key is provided, we simulate the LLM grounding logic exactly as requested.
-        import json
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=self.api_key)
+            
+            claims = []
+            for c in citations:
+                claims.append({
+                    "text": f"Evidence from {c['document_title']} indicates that {c['verbatim_excerpt'][:150].strip()}...",
+                    "sources": [c["citation_id"]]
+                })
+                
+            context = "\n".join([f"Source {c['citation_id']} ({c['document_title']}): {c['verbatim_excerpt']}" for c in citations])
+            
+            response = client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "You are a land governance policy AI assistant. Answer the user's query based ONLY on the provided context. Cite your sources using the provided citation IDs."},
+                    {"role": "user", "content": f"Context:\n{context}\n\nQuery: {query}"}
+                ],
+                temperature=0.0,
+                max_tokens=800
+            )
+            
+            answer_text = response.choices[0].message.content
+            
+            return {
+                "answer": answer_text.strip(),
+                "claims": claims
+            }
+        except ImportError:
+            # Fallback if openai is still somehow not installed despite requirements
+            return self._mock_generate(query, citations)
+            
+    def _mock_generate(self, query: str, citations: List[Dict]) -> Dict[str, Any]:
         claims = []
         for c in citations:
             claims.append({

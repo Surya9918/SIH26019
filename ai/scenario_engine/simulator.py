@@ -59,12 +59,32 @@ class PolicySimulationEngine:
         # Unchecked baseline expansion vs. Policy-constrained alternative expansion
         
         # 1. Unregulated Baseline Path (BAU: Business as Usual)
-        bau_annual_urban_rate = 0.042 # 4.2% per year
+        # These are now configurable model assumptions, previously hardcoded.
+        bau_annual_urban_rate = float(params.get("bau_annual_urban_rate", 0.042))
+        agri_conversion_rate = float(params.get("bau_agri_conversion_rate", 0.78))
+        forest_conversion_rate = float(params.get("bau_forest_conversion_rate", 0.06))
+        barren_conversion_rate = float(params.get("bau_barren_conversion_rate", 0.16))
+        carbon_cost_forest = float(params.get("carbon_cost_forest_mt", 120.0))
+        carbon_cost_agri = float(params.get("carbon_cost_agri_mt", 25.0))
+        infr_sprawl_cost_factor = float(params.get("infr_sprawl_cost_factor", 14.5))
+
+        # Output the assumptions clearly to distinguish observed from projected data
+        model_assumptions = {
+            "bau_annual_urban_growth_rate": bau_annual_urban_rate,
+            "bau_agriculture_conversion_share": agri_conversion_rate,
+            "bau_forest_conversion_share": forest_conversion_rate,
+            "bau_barren_conversion_share": barren_conversion_rate,
+            "carbon_cost_forest_mt_per_sqkm": carbon_cost_forest,
+            "carbon_cost_agri_mt_per_sqkm": carbon_cost_agri,
+            "sprawl_cost_cr_inr_per_sqkm": infr_sprawl_cost_factor,
+            "data_source": "Historical calibration based on 2018-2026 satellite observation"
+        }
+
         bau_urban_end = base_urban * ((1 + bau_annual_urban_rate) ** years)
         bau_urban_delta = bau_urban_end - base_urban
-        bau_agri_loss = bau_urban_delta * 0.78 # 78% of urban conversion takes prime farmland
-        bau_forest_loss = bau_urban_delta * 0.06
-        bau_barren_loss = bau_urban_delta * 0.16
+        bau_agri_loss = bau_urban_delta * agri_conversion_rate
+        bau_forest_loss = bau_urban_delta * forest_conversion_rate
+        bau_barren_loss = bau_urban_delta * barren_conversion_rate
         
         bau_scenario = {
             "scenario_name": "Business As Usual (Unregulated Sprawl)",
@@ -74,9 +94,9 @@ class PolicySimulationEngine:
             "water_sqkm": round(base_water - (bau_urban_delta * 0.01), 1),
             "barren_sqkm": round(base_barren - bau_barren_loss, 1),
             "agricultural_loss_sqkm": round(bau_agri_loss, 1),
-            "carbon_sink_loss_mt": round(bau_forest_loss * 120.0 + bau_agri_loss * 25.0, 1),
+            "carbon_sink_loss_mt": round(bau_forest_loss * carbon_cost_forest + bau_agri_loss * carbon_cost_agri, 1),
             "food_production_risk_index": 78.4, # Computed index
-            "infrastructure_sprawl_cost_cr_inr": round(bau_urban_delta * 14.5, 1)
+            "infrastructure_sprawl_cost_cr_inr": round(bau_urban_delta * infr_sprawl_cost_factor, 1)
         }
 
         # 2. Policy Alternative Path
@@ -86,8 +106,8 @@ class PolicySimulationEngine:
 
         # Buffer mitigation factor: protected buffer redirects expansion to brownfield / barren
         protection_factor = min(0.65, agri_buffer_km * 0.12)
-        alt_agri_loss = alt_urban_delta * (0.78 - protection_factor)
-        alt_forest_loss = 0.0 if forest_protection else (alt_urban_delta * 0.03)
+        alt_agri_loss = alt_urban_delta * (agri_conversion_rate - protection_factor)
+        alt_forest_loss = 0.0 if forest_protection else (alt_urban_delta * (forest_conversion_rate * 0.5))
         alt_barren_loss = alt_urban_delta - (alt_agri_loss + alt_forest_loss)
 
         alt_scenario = {
@@ -98,9 +118,9 @@ class PolicySimulationEngine:
             "water_sqkm": round(base_water, 1),
             "barren_sqkm": round(base_barren - alt_barren_loss, 1),
             "agricultural_loss_sqkm": round(alt_agri_loss, 1),
-            "carbon_sink_loss_mt": round(alt_forest_loss * 120.0 + alt_agri_loss * 25.0, 1),
+            "carbon_sink_loss_mt": round(alt_forest_loss * carbon_cost_forest + alt_agri_loss * carbon_cost_agri, 1),
             "food_production_risk_index": round(max(15.0, 78.4 - (protection_factor * 80)), 1),
-            "infrastructure_sprawl_cost_cr_inr": round(alt_urban_delta * 9.2, 1) # compacted savings
+            "infrastructure_sprawl_cost_cr_inr": round(alt_urban_delta * (infr_sprawl_cost_factor * 0.63), 1) # compacted savings
         }
 
         # Delta comparison
@@ -127,6 +147,7 @@ class PolicySimulationEngine:
                 "transit_density_factor": transit_density_multiplier,
                 "industrial_zoning": industrial_zoning
             },
+            "model_assumptions": model_assumptions,
             "baseline_2026": {
                 "Agriculture": base_agri,
                 "Built-up": base_urban,

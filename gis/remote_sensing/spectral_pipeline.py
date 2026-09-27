@@ -56,20 +56,55 @@ class RemoteSensingPipeline:
         Simulates remote sensing tile acquisition and processing for Sentinel-2 / Landsat-9
         calibrated for agricultural & urban monitoring.
         """
-        import os
-        sentinel_api_key = os.getenv("SENTINEL_API_KEY")
-        if not sentinel_api_key:
+        try:
+            from pystac_client import Client
+            
+            # Using Earth Search by Element 84, a public STAC API for Sentinel-2
+            client = Client.open("https://earth-search.aws.element84.com/v1")
+            
+            # Approximate bounding box for the given region, typically we would geocode this
+            bbox = [78.1, 17.1, 78.6, 17.6] if "Telangana" in region else [-180, -90, 180, 90]
+            
+            search = client.search(
+                collections=["sentinel-2-l2a"],
+                bbox=bbox,
+                query={"eo:cloud_cover": {"lt": cloud_cover_pct}},
+                max_items=1
+            )
+            
+            items = list(search.items())
+            if not items:
+                return {
+                    "status": "unavailable",
+                    "reason": "no_data_found",
+                    "message": f"No satellite imagery found for {region} matching cloud cover criteria."
+                }
+                
+            item = items[0]
+            
+            return {
+                "status": "success",
+                "provider": "Earth Search (Sentinel-2 L2A)",
+                "item_id": item.id,
+                "datetime": item.datetime.isoformat(),
+                "cloud_cover": item.properties.get("eo:cloud_cover"),
+                "assets": {
+                    "visual": item.assets["visual"].href if "visual" in item.assets else None,
+                    "metadata": item.assets["metadata"].href if "metadata" in item.assets else None
+                },
+                "bbox": item.bbox
+            }
+        except ImportError:
             return {
                 "status": "unavailable",
-                "reason": "required_data_source_not_configured",
-                "message": "Sentinel API integration requires SENTINEL_API_KEY to fetch real multispectral bands."
+                "reason": "not_implemented",
+                "message": "pystac-client is not installed. Please install it to use real satellite API ingestion."
             }
-
-        # Real implementation would go here using the API key to fetch tiles.
-        return {
-            "status": "unavailable",
-            "reason": "not_implemented",
-            "message": "Real satellite ingestion pipeline requires active Earth Observation subscription."
-        }
+        except Exception as e:
+            return {
+                "status": "error",
+                "reason": "api_error",
+                "message": f"Failed to fetch satellite data: {str(e)}"
+            }
 
 remote_sensing_pipeline = RemoteSensingPipeline()

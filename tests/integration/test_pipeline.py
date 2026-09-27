@@ -20,6 +20,46 @@ class TestPlatformIntegration(unittest.TestCase):
         # Seed the database for integration tests
         subprocess.run(["python", "database/seeds/seed_data.py"], cwd=".", env=env, check=True)
         
+        # Inject mock GIS layers for tests
+        import json
+        from backend.database.manager import db_manager
+        
+        mock_2018 = {
+            "type": "FeatureCollection",
+            "features": [
+                {"properties": {"category": "Agriculture", "area_sqkm": 4850.0}},
+                {"properties": {"category": "Built-up", "area_sqkm": 1220.0}},
+                {"properties": {"category": "Forest", "area_sqkm": 1640.0}},
+                {"properties": {"category": "Waterbody", "area_sqkm": 410.0}},
+                {"properties": {"category": "Barren", "area_sqkm": 880.0}}
+            ]
+        }
+        mock_2026 = {
+            "type": "FeatureCollection",
+            "features": [
+                {"properties": {"category": "Agriculture", "area_sqkm": 4180.0}},
+                {"properties": {"category": "Built-up", "area_sqkm": 1940.0}},
+                {"properties": {"category": "Forest", "area_sqkm": 1580.0}},
+                {"properties": {"category": "Waterbody", "area_sqkm": 390.0}},
+                {"properties": {"category": "Barren", "area_sqkm": 910.0}}
+            ]
+        }
+        db_manager.execute_insert(
+            "INSERT INTO gis_layers (layer_name, layer_type, state, district, year, geojson_data) VALUES (?, ?, ?, ?, ?, ?)",
+            ("Mock 2018", "lulc", "Telangana", "Rangareddy", 2018, json.dumps(mock_2018))
+        )
+        db_manager.execute_insert(
+            "INSERT INTO gis_layers (layer_name, layer_type, state, district, year, geojson_data) VALUES (?, ?, ?, ?, ?, ?)",
+            ("Mock 2026", "lulc", "Telangana", "Rangareddy", 2026, json.dumps(mock_2026))
+        )
+        
+        # Inject mock socioeconomic data
+        db_manager.execute_insert(
+            """INSERT OR REPLACE INTO socioeconomic_indicators 
+            (state, district, year, population, urban_pop_pct, literacy_rate, agri_workers_pct, forest_cover_sqkm, crop_intensity_pct, avg_landholding_ha, industrial_units)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            ("Telangana", "Rangareddy", 2026, 2600000, 58.4, 71.9, 24.5, 380.0, 142.5, 1.25, 1850)
+        )
     def setUp(self):
         self.client = TestClient(app)
 

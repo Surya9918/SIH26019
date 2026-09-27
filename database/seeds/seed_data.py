@@ -161,30 +161,9 @@ def seed_database():
         )
         print(f"Indexed document: {doc_data['title']}")
 
-    # 3. Seed Socioeconomic Indicators across Districts
-    districts_data = [
-        # Telangana
-        ("Telangana", "Hyderabad", 2026, 4200000, 100.0, 83.2, 0.4, 45.2, 110.0, 0.05, 3450),
-        ("Telangana", "Rangareddy", 2026, 2600000, 58.4, 71.9, 24.5, 380.0, 142.5, 1.25, 1850),
-        ("Telangana", "Medchal", 2026, 1750000, 62.1, 74.5, 18.2, 210.0, 135.0, 1.10, 1420),
-        ("Telangana", "Sangareddy", 2026, 1600000, 36.8, 64.1, 48.6, 490.0, 155.0, 1.65, 890),
-        ("Telangana", "Warangal", 2026, 1250000, 32.5, 67.2, 54.2, 620.0, 168.0, 1.80, 540),
-        ("Telangana", "Nalgonda", 2026, 1650000, 22.8, 63.8, 62.4, 410.0, 175.0, 2.10, 410),
-        
-        # Andhra Pradesh
-        ("Andhra Pradesh", "Visakhapatnam", 2026, 2350000, 47.5, 66.9, 38.2, 1120.0, 138.0, 1.45, 1150),
-        ("Andhra Pradesh", "Krishna", 2026, 2100000, 38.2, 73.7, 51.5, 310.0, 185.0, 1.55, 680),
-        ("Andhra Pradesh", "Guntur", 2026, 2450000, 35.4, 67.4, 56.8, 480.0, 178.0, 1.70, 720)
-    ]
-
-    for state, dist, yr, pop, urb, lit, agri, forest, crop, hold, ind in districts_data:
-        db_manager.execute_insert(
-            """INSERT OR REPLACE INTO socioeconomic_indicators 
-            (state, district, year, population, urban_pop_pct, literacy_rate, agri_workers_pct, forest_cover_sqkm, crop_intensity_pct, avg_landholding_ha, industrial_units)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (state, dist, yr, pop, urb, lit, agri, forest, crop, hold, ind)
-        )
-    print("Seeded socioeconomic indicators.")
+    # 3. Socioeconomic Indicators are no longer hardcoded here.
+    # They must be ingested via the external ingestion pipeline: scripts/ingest_socioeconomic.py
+    print("Socioeconomic indicators are now managed via the external ingestion pipeline.")
 
     # 4. Seed Dataset Catalog
     datasets = [
@@ -206,118 +185,9 @@ def seed_database():
         )
         print(f"Registered dataset: {name}")
 
-    # 5. Seed Real GIS GeoJSON Layers (Administrative & LULC)
-    telangana_admin_geojson = {
-        "type": "FeatureCollection",
-        "features": [
-            {
-                "type": "Feature",
-                "properties": {"name": "Hyderabad", "category": "District", "state": "Telangana", "urban_pct": 100.0},
-                "geometry": {
-                    "type": "Polygon",
-                    "coordinates": [[[78.35, 17.30], [78.58, 17.30], [78.58, 17.48], [78.35, 17.48], [78.35, 17.30]]]
-                }
-            },
-            {
-                "type": "Feature",
-                "properties": {"name": "Rangareddy", "category": "District", "state": "Telangana", "urban_pct": 58.4},
-                "geometry": {
-                    "type": "Polygon",
-                    "coordinates": [[[78.10, 17.10], [78.65, 17.10], [78.65, 17.60], [78.10, 17.60], [78.10, 17.10]]]
-                }
-            },
-            {
-                "type": "Feature",
-                "properties": {"name": "Medchal-Malkajgiri", "category": "District", "state": "Telangana", "urban_pct": 62.1},
-                "geometry": {
-                    "type": "Polygon",
-                    "coordinates": [[[78.38, 17.45], [78.70, 17.45], [78.70, 17.75], [78.38, 17.75], [78.38, 17.45]]]
-                }
-            },
-            {
-                "type": "Feature",
-                "properties": {"name": "Warangal", "category": "District", "state": "Telangana", "urban_pct": 32.5},
-                "geometry": {
-                    "type": "Polygon",
-                    "coordinates": [[[79.35, 17.80], [79.80, 17.80], [79.80, 18.15], [79.35, 18.15], [79.35, 17.80]]]
-                }
-            }
-        ]
-    }
-
-    lulc_2018_geojson = {
-        "type": "FeatureCollection",
-        "features": [
-            {
-                "type": "Feature",
-                "properties": {"category": "Agriculture", "year": 2018, "fill": "#22c55e", "stroke": "#16a34a", "area_sqkm": 4850.0},
-                "geometry": {
-                    "type": "Polygon",
-                    "coordinates": [[[78.20, 17.15], [78.50, 17.15], [78.50, 17.35], [78.20, 17.35], [78.20, 17.15]]]
-                }
-            },
-            {
-                "type": "Feature",
-                "properties": {"category": "Built-up", "year": 2018, "fill": "#ef4444", "stroke": "#dc2626", "area_sqkm": 1220.0},
-                "geometry": {
-                    "type": "Polygon",
-                    "coordinates": [[[78.40, 17.35], [78.52, 17.35], [78.52, 17.45], [78.40, 17.45], [78.40, 17.35]]]
-                }
-            },
-            {
-                "type": "Feature",
-                "properties": {"category": "Forest", "year": 2018, "fill": "#15803d", "stroke": "#166534", "area_sqkm": 1640.0},
-                "geometry": {
-                    "type": "Polygon",
-                    "coordinates": [[[78.05, 17.40], [78.18, 17.40], [78.18, 17.58], [78.05, 17.58], [78.05, 17.40]]]
-                }
-            }
-        ]
-    }
-
-    lulc_2026_geojson = {
-        "type": "FeatureCollection",
-        "features": [
-            {
-                "type": "Feature",
-                "properties": {"category": "Agriculture", "year": 2026, "fill": "#22c55e", "stroke": "#16a34a", "area_sqkm": 4180.0},
-                "geometry": {
-                    "type": "Polygon",
-                    "coordinates": [[[78.20, 17.15], [78.38, 17.15], [78.38, 17.30], [78.20, 17.30], [78.20, 17.15]]]
-                }
-            },
-            {
-                "type": "Feature",
-                "properties": {"category": "Built-up", "year": 2026, "fill": "#ef4444", "stroke": "#dc2626", "area_sqkm": 1940.0, "note": "Rapid peri-urban conversion along ORR"},
-                "geometry": {
-                    "type": "Polygon",
-                    "coordinates": [[[78.35, 17.28], [78.58, 17.28], [78.58, 17.52], [78.35, 17.52], [78.35, 17.28]]]
-                }
-            },
-            {
-                "type": "Feature",
-                "properties": {"category": "Forest", "year": 2026, "fill": "#15803d", "stroke": "#166534", "area_sqkm": 1580.0},
-                "geometry": {
-                    "type": "Polygon",
-                    "coordinates": [[[78.05, 17.40], [78.17, 17.40], [78.17, 17.57], [78.05, 17.57], [78.05, 17.40]]]
-                }
-            }
-        ]
-    }
-
-    db_manager.execute_insert(
-        "INSERT INTO gis_layers (layer_name, layer_type, state, district, year, geojson_data) VALUES (?, ?, ?, ?, ?, ?)",
-        ("Administrative Boundaries", "administrative", "Telangana", "All", 2026, json.dumps(telangana_admin_geojson))
-    )
-    db_manager.execute_insert(
-        "INSERT INTO gis_layers (layer_name, layer_type, state, district, year, geojson_data) VALUES (?, ?, ?, ?, ?, ?)",
-        ("LULC 2018 Baseline Classification", "lulc", "Telangana", "Rangareddy", 2018, json.dumps(lulc_2018_geojson))
-    )
-    db_manager.execute_insert(
-        "INSERT INTO gis_layers (layer_name, layer_type, state, district, year, geojson_data) VALUES (?, ?, ?, ?, ?, ?)",
-        ("LULC 2026 Satellite Observed Classification", "lulc", "Telangana", "Rangareddy", 2026, json.dumps(lulc_2026_geojson))
-    )
-    print("Seeded GIS Layers.")
+    # 5. Real GIS GeoJSON Layers must now be ingested via scripts/ingest_gis_layers.py
+    # Synthetic/hardcoded rectangles are removed for production integration.
+    print("GIS layers must now be uploaded through the integration API or ingestion script.")
     db_manager.execute_insert(
         "INSERT INTO innovation_initiatives (title, type, description, creator_id) VALUES (?, ?, ?, ?)",
         ("SIH26019 - Land Governance Hackathon", "Hackathon", "Build a secure, scalable, AI-enabled national research and policy innovation platform for land governance.", 1)

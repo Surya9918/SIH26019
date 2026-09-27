@@ -30,6 +30,15 @@ class HybridSearchIndex:
         self.total_docs: int = 0
         self.vocabulary: Dict[str, int] = {}
         self.dense_embedder = DenseEmbedder()
+        self.chroma_collection = None
+        try:
+            import chromadb
+            import os
+            os.makedirs("data/chroma", exist_ok=True)
+            self.chroma_client = chromadb.PersistentClient(path="data/chroma")
+            self.chroma_collection = self.chroma_client.get_or_create_collection(name="land_documents")
+        except ImportError:
+            pass
 
     def ensure_loaded(self):
         if self.total_docs == 0:
@@ -90,6 +99,17 @@ class HybridSearchIndex:
         
         self.total_docs += 1
         self.avg_doc_len = sum(self.doc_lengths.values()) / max(1, self.total_docs)
+        
+        if self.chroma_collection is not None:
+            dense_vector = self.dense_embedder.encode(text)
+            # Serialize metadata for ChromaDB (no dicts inside dicts, etc)
+            clean_metadata = {k: str(v) if v is not None else "" for k, v in metadata.items()}
+            self.chroma_collection.add(
+                ids=[str(doc_id)],
+                embeddings=[dense_vector],
+                documents=[text],
+                metadatas=[clean_metadata]
+            )
 
     def _bm25_score(self, query_terms: List[str], doc_id: int, k1: float = 1.5, b: float = 0.75) -> float:
         score = 0.0
@@ -157,19 +177,52 @@ class HybridSearchIndex:
                 continue
 
             bm25 = self._bm25_score(query_terms, doc_id)
-            cosine = self._cosine_sparse_score(query_terms, doc_id)
-            
-            hybrid_score = (0.6 * cosine) + (0.4 * min(1.0, bm25 / 10.0))
-            if hybrid_score > 0.05:
+            cosine = 0.0
+            hybrid_score = bm25 / 10.0 # fallback default
+
+            if self.chroma_collection is not None:
+                # Dense scores are populated below if chroma is used
+                pass
+            else:
+                cosine = self._cosine_sparse_score(query_terms, doc_id)
+                hybrid_score = (0.6 * cosine) + (0.4 * min(1.0, bm25 / 10.0))
+            if hybrid_score > 0.05 or self.chroma_collection is not None:
                 results.append({
                     "doc_id": doc_id,
                     "text": doc["text"],
                     "metadata": meta,
                     "bm25_score": round(bm25, 4),
-                    "vector_score": round(cosine, 4),
+                    "vector_score": 0.0,
                     "score": round(hybrid_score, 4)
                 })
 
+        if self.chroma_collection is not None and results:
+            # Query chroma for top dense matches
+            dense_query = self.dense_embedder.encode(query)
+            try:
+                chroma_res = self.chroma_collection.query(
+                    query_embeddings=[dense_query],
+                    n_results=min(len(results), 50)
+                )
+                
+                dense_scores = {}
+                if chroma_res and chroma_res["ids"] and chroma_res["ids"][0]:
+                    for i, cid_str in enumerate(chroma_res["ids"][0]):
+                        # distance to similarity (rough proxy since chroma default is l2, 1 / (1+dist))
+                        dist = chroma_res["distances"][0][i]
+                        dense_scores[int(cid_str)] = 1.0 / (1.0 + dist)
+
+                for r in results:
+                    did = r["doc_id"]
+                    d_score = dense_scores.get(did, 0.0)
+                    r["vector_score"] = round(d_score, 4)
+                    r["score"] = round((0.7 * d_score) + (0.3 * min(1.0, r["bm25_score"] / 10.0)), 4)
+                    
+            except Exception:
+                pass
+
+        # Filter out low scores after hybrid mix
+        results = [r for r in results if r["score"] > 0.05]
         results.sort(key=lambda x: x["score"], reverse=True)
         return results[:top_k]
 
