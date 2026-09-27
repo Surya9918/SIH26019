@@ -138,28 +138,34 @@ export function PolicyLab() {
 
               <div className="grid grid-cols-2 gap-4 mb-8">
                 <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                  <div className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Impact Score</div>
-                  <div className="text-3xl font-black text-slate-900">{results.impact_score.toFixed(1)}</div>
-                  <div className="text-xs font-medium text-slate-500 mt-1">Composite vulnerability metric</div>
+                  <div className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Food Security Risk</div>
+                  <div className="text-3xl font-black text-slate-900">{results.policy_alternative?.food_production_risk_index?.toFixed(1) || 0}</div>
+                  <div className="text-xs font-medium text-slate-500 mt-1">Lower is better</div>
                 </div>
                 <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                  <div className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Displacement Risk</div>
-                  <div className={clsx("text-3xl font-black", results.displacement_risk > 0.5 ? "text-gov-red" : "text-gov-green")}>
-                    {(results.displacement_risk * 100).toFixed(1)}%
+                  <div className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">Agri-Land Conserved</div>
+                  <div className="text-3xl font-black text-gov-green">
+                    {results.net_policy_benefits?.prime_agricultural_land_conserved_sqkm?.toFixed(1) || 0} sqkm
                   </div>
-                  <div className="text-xs font-medium text-slate-500 mt-1">Probable community impact</div>
+                  <div className="text-xs font-medium text-slate-500 mt-1">Prevented conversion loss</div>
                 </div>
               </div>
 
               <div>
                 <h4 className="text-sm font-bold text-slate-900 mb-3 uppercase tracking-wider">Generated Insights</h4>
                 <ul className="space-y-3">
-                  {results.insights.map((insight: string, i: number) => (
-                    <li key={i} className="flex gap-3 text-sm text-slate-700 bg-white border border-slate-100 p-3 rounded-lg shadow-sm">
-                      <div className="mt-0.5 text-gov-blue"><FlaskConical className="w-4 h-4" /></div>
-                      {insight}
-                    </li>
-                  ))}
+                  <li className="flex gap-3 text-sm text-slate-700 bg-white border border-slate-100 p-3 rounded-lg shadow-sm">
+                    <div className="mt-0.5 text-gov-blue"><FlaskConical className="w-4 h-4" /></div>
+                    {results.policy_recommendation}
+                  </li>
+                  <li className="flex gap-3 text-sm text-slate-700 bg-white border border-slate-100 p-3 rounded-lg shadow-sm">
+                    <div className="mt-0.5 text-gov-green"><Activity className="w-4 h-4" /></div>
+                    CO2 Emissions Avoided: {results.net_policy_benefits?.carbon_emission_avoidance_mt_co2e} MT CO2e
+                  </li>
+                  <li className="flex gap-3 text-sm text-slate-700 bg-white border border-slate-100 p-3 rounded-lg shadow-sm">
+                    <div className="mt-0.5 text-gov-saffron"><Save className="w-4 h-4" /></div>
+                    Infrastructure Capital Savings: ₹{results.net_policy_benefits?.infrastructure_capital_savings_cr_inr} Crores
+                  </li>
                 </ul>
               </div>
             </div>
