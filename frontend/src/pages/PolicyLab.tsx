@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { FlaskConical, Play, Save, Activity, Settings2, Download } from 'lucide-react';
-import clsx from 'clsx';
 import { fetchApi } from '../services/api';
 
 export function PolicyLab() {

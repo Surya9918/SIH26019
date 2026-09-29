@@ -10,10 +10,55 @@
   --color-gov-green: #166534;
   --color-gov-red: #991b1b;
   --color-gov-saffron: #f97316;
+  
+  --color-bhu-bg: #F4F7F9;
+  --color-bhu-navbar: #FFFFFF;
+  --color-bhu-sidebar: #F1F6F6;
+  --color-bhu-cards: #FFFFFF;
+  --color-bhu-primary-text: #0F172A;
+  --color-bhu-secondary-text: #475569;
+  --color-bhu-muted-text: #64748B;
+  --color-bhu-primary: #008B72;
+  --color-bhu-dark: #00695C;
+  --color-bhu-light: #E8F7F3;
+  --color-bhu-blue: #2563EB;
+  --color-bhu-success: #10B981;
+  --color-bhu-warning: #F59E0B;
+  --color-bhu-danger: #EF4444;
 }
 
 @layer base {
+  html, body, #root {
+    min-height: 100%;
+  }
+  
   body {
     @apply text-slate-900 bg-slate-50 antialiased font-sans;
+    background-image: url('./assets/bhu-setu-global-background.png');
+    background-size: cover;
+    background-position: center top;
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+  }
+}
+
+@layer utilities {
+  .reduce-motion * {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  .larger-text {
+    font-size: 105% !important;
+  }
+
+  .high-contrast {
+    --color-bhu-muted-text: #334155;
+    --color-slate-500: #334155;
+    --color-slate-400: #475569;
+  }
+  
+  .high-contrast * {
+    border-color: #94A3B8 !important;
   }
 }

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Users, FileText, Plus, MessageSquare, History } from 'lucide-react';
-import { fetchApi } from '../services/api';
 
 export function Workspaces() {
   const [workspaces, setWorkspaces] = useState<any[]>([]);

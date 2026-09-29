@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bot, Search, ShieldCheck, CornerDownLeft, FileText, Sparkles, BookOpen } from 'lucide-react';
+import { Bot, Search, ShieldCheck, CornerDownLeft, Sparkles, BookOpen } from 'lucide-react';
 import clsx from 'clsx';
 import { fetchApi } from '../services/api';
 

@@ -11,6 +11,20 @@ export function GisStudio() {
   const [activeLayer, setActiveLayer] = useState<string | null>(null);
   const [geoData, setGeoData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [mapView, setMapView] = useState<'map' | 'satellite' | 'terrain'>('map');
+
+  useEffect(() => {
+    const applySettings = () => {
+      const settingsStr = localStorage.getItem('bhu_settings');
+      if (settingsStr) {
+        const p = JSON.parse(settingsStr);
+        if (p.mapView) setMapView(p.mapView.toLowerCase() as 'map'|'satellite'|'terrain');
+      }
+    };
+    applySettings();
+    window.addEventListener('bhu_settings_changed', applySettings);
+    return () => window.removeEventListener('bhu_settings_changed', applySettings);
+  }, []);
 
   useEffect(() => {
     // Fetch available layers
@@ -99,7 +113,11 @@ export function GisStudio() {
           >
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              url={
+                mapView === 'satellite' ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" :
+                mapView === 'terrain' ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}" :
+                "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              }
             />
             <ZoomControl position="bottomright" />
             

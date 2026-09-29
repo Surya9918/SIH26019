@@ -17,6 +17,22 @@ export default {
           green: '#166534',
           red: '#991b1b',
           saffron: '#f97316',
+        },
+        bhu: {
+          bg: '#F4F7F9',
+          navbar: '#FFFFFF',
+          sidebar: '#F1F6F6',
+          cards: '#FFFFFF',
+          'primary-text': '#0F172A',
+          'secondary-text': '#475569',
+          'muted-text': '#64748B',
+          primary: '#008B72',
+          dark: '#00695C',
+          light: '#E8F7F3',
+          blue: '#2563EB',
+          success: '#10B981',
+          warning: '#F59E0B',
+          danger: '#EF4444',
         }
       },
       fontFamily: {

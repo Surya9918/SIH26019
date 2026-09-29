@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   ArrowUpRight, 
   Search, 
-  Map as MapIcon, 
   ArrowRight,
   FileText,
   Database,
@@ -14,40 +14,143 @@ import {
   Search as SearchIcon,
   MapPin,
   PlaySquare,
-  Download,
-  ChevronRight
+  Zap,
+  Globe
 } from 'lucide-react';
-import { MapContainer, TileLayer, ZoomControl } from 'react-leaflet';
+import { MapContainer, TileLayer, GeoJSON, useMap } from 'react-leaflet';
+import L from 'leaflet';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import 'leaflet/dist/leaflet.css';
+import indiaGeoJson from '../assets/india_states.json';
 import clsx from 'clsx';
 
-function MetricCard({ title, value, icon: Icon, colorClass, shadowClass }: any) {
+// Simple SVG sparkline component for visual enhancement
+function Sparkline({ color, trend }: { color: string, trend: 'up' | 'down' }) {
   return (
-    <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between hover:-translate-y-0.5 transition-transform cursor-pointer relative overflow-hidden group">
-      <div>
-        <div className="text-2xl font-black text-slate-800 tracking-tight mb-1">{value}</div>
-        <h3 className="text-sm font-semibold text-slate-500">{title}</h3>
-      </div>
-      <div className={clsx("w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-md relative z-10", colorClass, shadowClass)}>
-        <Icon className="w-5 h-5" />
-      </div>
-      {/* Background glow on hover */}
-      <div className={clsx("absolute -right-4 -bottom-4 w-24 h-24 rounded-full blur-2xl opacity-0 group-hover:opacity-20 transition-opacity", colorClass)}></div>
-    </div>
+    <svg width="60" height="20" viewBox="0 0 60 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {trend === 'up' ? (
+        <path d="M0 18 L15 12 L30 15 L45 5 L60 2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      ) : (
+        <path d="M0 2 L15 8 L30 5 L45 15 L60 18" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      )}
+    </svg>
   );
 }
 
+const PALETTES = {
+  'Land Use': [
+    { type: 'Agriculture', color: '#10B981', fill: 'fill-emerald-500' },
+    { type: 'Forest', color: '#047857', fill: 'fill-emerald-700' },
+    { type: 'Urban', color: '#F59E0B', fill: 'fill-amber-500' },
+    { type: 'Water', color: '#3B82F6', fill: 'fill-blue-500' },
+    { type: 'Barren', color: '#94A3B8', fill: 'fill-slate-400' },
+  ],
+  'Climate Risk': [
+    { type: 'Low', color: '#34D399', fill: 'fill-emerald-400' },
+    { type: 'Moderate', color: '#FBBF24', fill: 'fill-amber-400' },
+    { type: 'High', color: '#F87171', fill: 'fill-red-400' },
+    { type: 'Extreme', color: '#B91C1C', fill: 'fill-red-700' },
+  ]
+};
+
+function hashString(str: string) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return Math.abs(hash);
+}
+
+function MapBoundsFit({ data }: { data: any }) {
+  const map = useMap();
+  useEffect(() => {
+    if (data) {
+      const geoJsonLayer = L.geoJSON(data);
+      const fit = () => {
+        map.fitBounds(geoJsonLayer.getBounds(), { 
+          padding: [20, 20],
+          maxZoom: 6
+        });
+      };
+      fit();
+      window.addEventListener('resize', fit);
+      return () => window.removeEventListener('resize', fit);
+    }
+  }, [data, map]);
+  return null;
+}
+
 const LAND_USE_DATA = [
-  { name: 'Agriculture', value: 46.2, color: '#10b981' }, // emerald-500
-  { name: 'Forest', value: 21.3, color: '#059669' }, // emerald-600
-  { name: 'Built-up', value: 8.7, color: '#f59e0b' }, // amber-500
-  { name: 'Water', value: 4.1, color: '#3b82f6' }, // blue-500
-  { name: 'Barren', value: 19.7, color: '#94a3b8' }, // slate-400
+  { name: 'Agriculture', value: 46.2, color: '#10B981' }, // bhu-success
+  { name: 'Forest', value: 21.3, color: '#008B72' }, // bhu-primary
+  { name: 'Built-up (Urban)', value: 8.7, color: '#F59E0B' }, // bhu-warning
+  { name: 'Water', value: 4.1, color: '#2563EB' }, // bhu-blue
+  { name: 'Barren', value: 19.7, color: '#94A3B8' }, // slate-400
 ];
 
 export function Overview() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<any>(null);
+  const [activeLayer, setActiveLayer] = useState<string | null>(null);
+  const [hoveredState, setHoveredState] = useState<any>(null);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [layersOpen, setLayersOpen] = useState(false);
+  const [mapView, setMapView] = useState<'map' | 'satellite' | 'terrain'>('satellite');
+  const [searchQuery, setSearchQuery] = useState('');
+  const layersRef = useRef<HTMLDivElement>(null);
+
+  const [dashKpis, setDashKpis] = useState(true);
+  const [dashActivity, setDashActivity] = useState(true);
+  const [dashQuickAccess, setDashQuickAccess] = useState(true);
+  const [dashInnovation, setDashInnovation] = useState(true);
+
+  const [mapLabels, setMapLabels] = useState(true);
+  const [mapBoundaries, setMapBoundaries] = useState(true);
+
+  useEffect(() => {
+    const applySettings = () => {
+      const settingsStr = localStorage.getItem('bhu_settings');
+      if (settingsStr) {
+        const p = JSON.parse(settingsStr);
+        setDashKpis(p.dashKpis ?? true);
+        setDashActivity(p.dashActivity ?? true);
+        setDashQuickAccess(p.dashQuickAccess ?? true);
+        setDashInnovation(p.dashInnovation ?? true);
+        
+        if (p.mapView) setMapView(p.mapView.toLowerCase() as 'map'|'satellite'|'terrain');
+        if (p.mapLayer) setActiveLayer(p.mapLayer === 'None' ? null : p.mapLayer);
+        setMapLabels(p.mapLabels ?? true);
+        setMapBoundaries(p.mapBoundaries ?? true);
+      }
+    };
+    applySettings();
+    window.addEventListener('bhu_settings_changed', applySettings);
+    return () => window.removeEventListener('bhu_settings_changed', applySettings);
+  }, []);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePos({ x: e.clientX, y: e.clientY });
+    };
+    function handleClickOutside(event: MouseEvent) {
+      if (layersRef.current && !layersRef.current.contains(event.target as Node)) {
+        setLayersOpen(false);
+      }
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setLayersOpen(false);
+      }
+    }
+    window.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
   useEffect(() => {
     fetch('http://localhost:8000/api/admin/stats')
@@ -59,258 +162,400 @@ export function Overview() {
   }, []);
 
   return (
-    <div className="max-w-[1600px] mx-auto pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="max-w-[1600px] mx-auto pb-12 animate-in fade-in duration-500 text-slate-900 space-y-6">
       
-      {/* HERO SECTION */}
-      <div className="bg-gradient-to-r from-slate-100 to-slate-200 rounded-3xl p-8 mb-8 relative overflow-hidden border border-slate-200/60 shadow-sm flex flex-col md:flex-row items-center min-h-[280px]">
-        {/* Background Image/Graphic Placeholder */}
-        <div className="absolute right-0 top-0 bottom-0 w-1/2 bg-[url('https://images.unsplash.com/photo-1536696579225-b1a77452d3a9?q=80&w=2000&auto=format&fit=crop')] bg-cover bg-center opacity-40 mix-blend-overlay [mask-image:linear-gradient(to_right,transparent,black)]"></div>
+      {/* ROW 1: COMMAND CENTER (HERO) */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 relative overflow-hidden flex flex-col lg:flex-row items-center justify-between gap-10">
+        <div className="absolute top-0 right-0 w-2/3 h-full opacity-10 bg-[url('https://images.unsplash.com/photo-1536696579225-b1a77452d3a9?q=80&w=2000&auto=format&fit=crop')] bg-cover bg-center [mask-image:linear-gradient(to_left,white,transparent)] pointer-events-none"></div>
         
-        <div className="relative z-10 w-full md:w-3/5 pr-8">
-          <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">WELCOME BACK, SURIYA</div>
-          <h1 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight mb-4 leading-tight">
-            Explore. Analyze. Innovate.
+        <div className="relative z-10 w-full lg:w-3/5">
+          <div className="text-[11px] font-bold text-bhu-primary uppercase tracking-widest mb-4 flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-bhu-primary"></span>
+            WELCOME BACK, SURIYA
+          </div>
+          <h1 className="text-3xl lg:text-[2.5rem] font-black text-slate-900 tracking-tight leading-[1.1] mb-4">
+            National Land Governance Intelligence
           </h1>
-          <p className="text-slate-600 text-lg mb-8 font-medium">
-            Your central hub for land research, policy, and geospatial intelligence.
+          <p className="text-slate-500 text-sm mb-8 leading-relaxed max-w-xl font-medium">
+            Explore, analyze, and innovate. Your central command for land research, policy simulation, and geospatial analytics.
           </p>
           
-          <div className="relative max-w-xl group shadow-lg rounded-full">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-indigo-600" />
+          <form 
+            onSubmit={(e) => { e.preventDefault(); if (searchQuery.trim()) navigate(`/research/repository?q=${encodeURIComponent(searchQuery)}`); }}
+            className="relative max-w-xl group bg-slate-50 rounded-xl border border-slate-200 flex items-center focus-within:bg-white focus-within:border-bhu-primary/50 focus-within:ring-4 focus-within:ring-bhu-primary/10 transition-all"
+          >
+            <Search className="absolute left-4 w-5 h-5 text-slate-400 group-focus-within:text-bhu-primary transition-colors" />
             <input 
               type="text" 
-              placeholder="Search across datasets, policies, research papers, maps..."
-              className="w-full bg-white border-none py-3.5 pl-12 pr-12 rounded-full text-slate-700 shadow-sm outline-none focus:ring-4 focus:ring-indigo-500/20"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search research, datasets, policies, maps, and evidence..."
+              className="w-full bg-transparent border-none py-4 pl-12 pr-14 text-sm text-slate-900 outline-none rounded-xl"
             />
-            <button className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 bg-indigo-600 text-white rounded-full flex items-center justify-center hover:bg-indigo-700 transition-colors">
-              <ArrowRight className="w-4 h-4" />
+            <button type="submit" className="absolute right-2 w-10 h-10 bg-bhu-primary text-white rounded-lg flex items-center justify-center hover:bg-bhu-dark transition-colors shadow-sm">
+              <ArrowRight className="w-5 h-5" />
             </button>
-          </div>
+          </form>
         </div>
-
-        {/* Hero Right - Stats Cards */}
-        <div className="relative z-10 w-full md:w-2/5 mt-8 md:mt-0 flex flex-col gap-3">
-          <div className="bg-white/80 backdrop-blur-md rounded-xl p-3 flex items-center gap-4 shadow-sm border border-white/50">
-            <div className="w-10 h-10 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center font-black">
-              <FileText className="w-5 h-5" />
+        
+        {/* Supporting Statistics */}
+        <div className="relative z-10 w-full lg:w-2/5 grid grid-cols-2 gap-x-8 gap-y-8 pl-0 lg:pl-10 border-t lg:border-t-0 lg:border-l border-slate-100 pt-8 lg:pt-0">
+          {[
+            { value: stats ? stats.indexed_documents : '12,482', label: 'Research Publications' },
+            { value: stats ? stats.registered_datasets : '8,732', label: 'Datasets' },
+            { value: stats ? stats.simulated_scenarios : '1,245', label: 'Policy Documents' },
+            { value: '632', label: 'Case Studies' }
+          ].map((stat, i) => (
+            <div key={i} className="flex flex-col gap-1">
+              <div className="text-3xl font-black text-slate-900 tracking-tight">{stat.value}</div>
+              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">{stat.label}</div>
             </div>
-            <div>
-              <div className="text-xl font-black text-slate-800 leading-none">{stats ? stats.indexed_documents : '12,482'}</div>
-              <div className="text-xs font-medium text-slate-500">Research Publications</div>
-            </div>
-          </div>
-          <div className="bg-white/80 backdrop-blur-md rounded-xl p-3 flex items-center gap-4 shadow-sm border border-white/50">
-            <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center font-black">
-              <Database className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-xl font-black text-slate-800 leading-none">{stats ? stats.registered_datasets : '8,732'}</div>
-              <div className="text-xs font-medium text-slate-500">Datasets</div>
-            </div>
-          </div>
-          <div className="bg-white/80 backdrop-blur-md rounded-xl p-3 flex items-center gap-4 shadow-sm border border-white/50">
-            <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center font-black">
-              <FileText className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-xl font-black text-slate-800 leading-none">{stats ? stats.simulated_scenarios : '1,245'}</div>
-              <div className="text-xs font-medium text-slate-500">Policy Documents</div>
-            </div>
-          </div>
-          <div className="bg-white/80 backdrop-blur-md rounded-xl p-3 flex items-center gap-4 shadow-sm border border-white/50">
-            <div className="w-10 h-10 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center font-black">
-              <Box className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="text-xl font-black text-slate-800 leading-none">632</div>
-              <div className="text-xs font-medium text-slate-500">Case Studies</div>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
 
-      {/* 4 HORIZONTAL CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between group hover:shadow-md transition-all cursor-pointer">
-          <div className="flex justify-between items-start mb-4">
-            <div className="w-12 h-12 bg-blue-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/30">
-              <FileText className="w-5 h-5" />
+      {/* ROW 2: KPI ROW */}
+      {dashKpis && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[
+          { icon: FileText, value: stats ? stats.indexed_documents : '2,481', title: 'Verified Research', sub: 'Statutory acts, indexed research', color: 'text-bhu-blue', bg: 'bg-blue-50', spark: '#2563EB' },
+          { icon: Database, value: stats ? stats.registered_datasets : '8,732', title: 'Registered Datasets', sub: 'Cadastral layers, satellite data', color: 'text-bhu-primary', bg: 'bg-bhu-light', spark: '#008B72' },
+          { icon: Activity, value: stats ? stats.simulated_scenarios : '145', title: 'Policy Scenarios', sub: 'Simulations executed', color: 'text-purple-600', bg: 'bg-purple-50', spark: '#9333EA' },
+          { icon: Box, value: '86', title: 'Innovation Blocks', sub: 'SIH-2026 / Innovation challenges', color: 'text-bhu-warning', bg: 'bg-amber-50', spark: '#F59E0B' }
+        ].map((kpi, i) => (
+          <div key={i} className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-shadow group flex flex-col justify-between h-[180px]">
+            <div className="flex justify-between items-start mb-6">
+              <div className={clsx("w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm border border-slate-100 bg-white", kpi.color)}>
+                <kpi.icon className="w-5 h-5" />
+              </div>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-50 border border-slate-100 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-bhu-success animate-pulse"></span>
+                <span className="text-[10px] font-bold text-slate-600">Live</span>
+              </div>
             </div>
-            <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live
-            </span>
-          </div>
-          <div>
-            <h3 className="text-base font-bold text-slate-800">Verified Research</h3>
-            <p className="text-xs font-medium text-slate-500">Statutory Acts, Indexed</p>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between group hover:shadow-md transition-all cursor-pointer">
-          <div className="flex justify-between items-start mb-4">
-            <div className="w-12 h-12 bg-emerald-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-emerald-600/30">
-              <Database className="w-5 h-5" />
+            <div className="flex justify-between items-end">
+              <div>
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">{kpi.title}</h3>
+                <div className="text-3xl font-black text-slate-900 mb-1">{kpi.value}</div>
+                <p className="text-[11px] font-medium text-slate-500 truncate">{kpi.sub}</p>
+              </div>
+              <div className="opacity-40 group-hover:opacity-100 transition-opacity pb-1">
+                <Sparkline color={kpi.spark} trend="up" />
+              </div>
             </div>
-            <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live
-            </span>
           </div>
-          <div>
-            <h3 className="text-base font-bold text-slate-800">Registered Datasets</h3>
-            <p className="text-xs font-medium text-slate-500">Cadastral layers, satellite data</p>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between group hover:shadow-md transition-all cursor-pointer">
-          <div className="flex justify-between items-start mb-4">
-            <div className="w-12 h-12 bg-violet-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-violet-600/30">
-              <Activity className="w-5 h-5" />
-            </div>
-            <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live
-            </span>
-          </div>
-          <div>
-            <h3 className="text-base font-bold text-slate-800">Policy Scenarios</h3>
-            <p className="text-xs font-medium text-slate-500">Simulations executed</p>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between group hover:shadow-md transition-all cursor-pointer">
-          <div className="flex justify-between items-start mb-4">
-            <div className="w-12 h-12 bg-orange-600 text-white rounded-xl flex items-center justify-center shadow-lg shadow-orange-600/30">
-              <Box className="w-5 h-5" />
-            </div>
-            <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live
-            </span>
-          </div>
-          <div>
-            <h3 className="text-base font-bold text-slate-800">Innovation Blocks</h3>
-            <p className="text-xs font-medium text-slate-500">SIH-2026/Marathon Ledger</p>
-          </div>
-        </div>
+        ))}
       </div>
+      )}
 
-      {/* MIDDLE SECTION */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 mb-5">
+      {/* ROW 3: GIS INTELLIGENCE ROW */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Map Card */}
-        <div className="lg:col-span-6 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col h-[400px]">
-          <div className="p-4 border-b border-slate-100 flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-indigo-50 text-indigo-600 rounded">
-                <MapIcon className="w-4 h-4" />
+        <div className="lg:col-span-6 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[500px]">
+          <div className="px-6 py-4 flex justify-between items-center border-b border-slate-100">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-bhu-light flex items-center justify-center text-bhu-primary">
+                <Globe className="w-4 h-4" />
               </div>
-              <h3 className="text-base font-bold text-slate-800">Geospatial Intelligence Snapshot</h3>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 leading-none mb-1">Geospatial Intelligence Snapshot</h3>
+                <p className="text-[11px] font-medium text-slate-500 leading-none">Land use, climate vulnerability and governance</p>
+              </div>
             </div>
-            <button className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
-              View Map <ArrowRight className="w-3 h-3" />
+            <button onClick={() => navigate('/gis/maps')} className="text-[11px] font-bold text-bhu-primary bg-bhu-light hover:bg-bhu-primary/20 px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5">
+              Open GIS Studio <ArrowRight className="w-3 h-3" />
             </button>
           </div>
-          <div className="flex-1 relative bg-slate-900">
-            {/* Layers Overlay */}
-            <div className="absolute top-4 left-4 z-[1000] bg-white rounded-xl shadow-lg w-48 overflow-hidden flex flex-col">
-              <div className="p-3 bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-800">Layers</div>
-              <div className="p-2 flex flex-col gap-1">
-                {[
-                  { label: 'Land Use', active: true },
-                  { label: 'Climate Risk', active: true },
-                  { label: 'Land Disputes', active: false },
-                  { label: 'Infrastructure', active: false },
-                  { label: 'Administrative Boundaries', active: false },
-                ].map((l, i) => (
-                  <label key={i} className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 rounded cursor-pointer">
-                    <input type="checkbox" checked={l.active} readOnly className="w-3 h-3 text-indigo-600 rounded-sm border-slate-300 focus:ring-indigo-500" />
-                    <span className="text-xs text-slate-700 font-medium">{l.label}</span>
-                  </label>
-                ))}
-              </div>
-              <div className="p-2 border-t border-slate-100">
-                <div className="text-[10px] font-bold text-slate-400 uppercase mb-2 ml-1">View</div>
-                <div className="flex bg-slate-100 p-1 rounded-lg">
-                  <button className="flex-1 py-1 text-xs font-bold bg-white shadow rounded text-indigo-700">Map</button>
-                  <button className="flex-1 py-1 text-xs font-bold text-slate-500 hover:text-slate-800">Satellite</button>
+          <div className="flex-1 relative bg-slate-100">
+            {/* GIS Controls Overlay */}
+            <div ref={layersRef} className="absolute top-4 left-4 z-[1000]">
+              <button 
+                onClick={() => setLayersOpen(!layersOpen)}
+                aria-expanded={layersOpen}
+                aria-haspopup="true"
+                className="flex items-center justify-between w-[220px] h-[44px] bg-[#0F172A] border border-white/10 rounded-xl px-4 shadow-md hover:bg-[#1E293B] transition-colors focus:outline-none focus:ring-2 focus:ring-bhu-primary"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="text-bhu-primary text-[10px]">◈</div>
+                  <span className="text-[#F8FAFC] text-[11px] font-black uppercase tracking-widest">Map Layers</span>
+                </div>
+                {layersOpen ? (
+                  <div className="text-slate-400 text-[10px]">▲</div>
+                ) : (
+                  <div className="text-slate-400 text-[10px]">▼</div>
+                )}
+              </button>
+
+              <div 
+                className={`absolute top-full left-0 mt-2 w-[220px] bg-[#0F172A] border border-white/10 rounded-xl p-2.5 shadow-lg transition-all duration-150 origin-top ${
+                  layersOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
+                }`}
+              >
+                <div className="flex flex-col gap-1">
+                  {[
+                    { id: 'Land Use', label: 'Land Use' },
+                    { id: 'Climate Risk', label: 'Climate Risk' },
+                  ].map(layer => (
+                    <button 
+                      key={layer.id}
+                      onClick={() => setActiveLayer(activeLayer === layer.id ? null : layer.id)}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-bold transition-colors focus:outline-none focus:ring-2 focus:ring-bhu-primary/50 ${
+                        activeLayer === layer.id 
+                          ? 'bg-bhu-primary/10 text-bhu-primary' 
+                          : 'text-[#F8FAFC] hover:bg-white/5'
+                      }`}
+                    >
+                      <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                        activeLayer === layer.id ? 'bg-bhu-primary border-bhu-primary' : 'border-[#94A3B8] bg-transparent'
+                      }`}>
+                        {activeLayer === layer.id && (
+                          <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                      {layer.label}
+                    </button>
+                  ))}
+                  <div className="h-px bg-white/10 my-1.5"></div>
+                  {[
+                    { label: 'Land Disputes', active: false },
+                    { label: 'Infrastructure', active: false },
+                    { label: 'Administrative Boundaries', active: false },
+                  ].map((l, i) => (
+                    <div key={`check-${i}`} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-bold text-[#94A3B8] cursor-not-allowed opacity-60">
+                      <div className="w-3.5 h-3.5 rounded border border-[#94A3B8] bg-transparent shrink-0 flex items-center justify-center"></div>
+                      {l.label}
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
             
-            {/* Map Legend Overlay */}
-            <div className="absolute top-4 right-4 z-[1000] bg-white rounded-xl shadow-lg p-3">
-              <div className="flex flex-col gap-2">
-                {[
-                  { label: 'Urban', color: 'bg-red-500' },
-                  { label: 'Agriculture', color: 'bg-emerald-500' },
-                  { label: 'Forest', color: 'bg-emerald-700' },
-                  { label: 'Water', color: 'bg-blue-500' },
-                  { label: 'Barren', color: 'bg-slate-400' },
-                ].map((l, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <div className={clsx("w-2 h-2 rounded-full", l.color)}></div>
-                    <span className="text-[10px] font-bold text-slate-600">{l.label}</span>
-                  </div>
-                ))}
-              </div>
+            {/* GIS View Toggle */}
+            <div className="absolute bottom-4 left-4 z-[1000] bg-[#0F172A] backdrop-blur rounded-lg shadow-md border border-white/10 flex items-center p-1">
+              <button onClick={() => setMapView('map')} className={clsx("px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold rounded-md transition-colors", mapView === 'map' ? "bg-bhu-primary text-white" : "text-slate-400 hover:text-white")}>Map</button>
+              <button onClick={() => setMapView('satellite')} className={clsx("px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold rounded-md transition-colors", mapView === 'satellite' ? "bg-bhu-primary text-white" : "text-slate-400 hover:text-white")}>Satellite</button>
+              <button onClick={() => setMapView('terrain')} className={clsx("px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold rounded-md transition-colors", mapView === 'terrain' ? "bg-bhu-primary text-white" : "text-slate-400 hover:text-white")}>Terrain</button>
             </div>
+
+            {/* Live Layer Badge */}
+            <div className="absolute top-4 right-4 z-[1000] bg-slate-900/90 backdrop-blur text-white px-3 py-1.5 rounded-full shadow-md flex items-center gap-2 text-[10px] font-bold tracking-wide uppercase border border-white/10">
+              <span className="w-1.5 h-1.5 rounded-full bg-bhu-success animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>
+              Live GIS
+            </div>
+
+            {/* Map Legend Overlay */}
+            {activeLayer === 'Land Use' && (
+              <div className="absolute bottom-4 right-4 z-[1000] bg-white/95 backdrop-blur rounded-xl shadow-md border border-slate-200/60 p-3 w-40 animate-in fade-in zoom-in duration-200">
+                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">Land Use Classes</div>
+                <div className="flex flex-col gap-1.5">
+                  {LAND_USE_DATA.slice(0,4).map((l, i) => (
+                    <div key={i} className="flex items-center gap-2.5">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: l.color }}></div>
+                      <span className="text-[10px] font-semibold text-slate-600 truncate">{l.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {activeLayer === 'Climate Risk' && (
+              <div className="absolute bottom-4 right-4 z-[1000] bg-white/95 backdrop-blur rounded-xl shadow-md border border-slate-200/60 p-3 w-40 animate-in fade-in zoom-in duration-200">
+                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">Climate Risk</div>
+                <div className="flex flex-col gap-1.5">
+                  {[
+                    { label: 'Very High', color: '#B91C1C' },
+                    { label: 'High', color: '#F87171' },
+                    { label: 'Moderate', color: '#FBBF24' },
+                    { label: 'Low', color: '#34D399' }
+                  ].map((l, i) => (
+                    <div key={i} className="flex items-center gap-2.5">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: l.color }}></div>
+                      <span className="text-[10px] font-semibold text-slate-600 truncate">{l.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <MapContainer 
               center={[22.5937, 78.9629]} 
-              zoom={4} 
-              zoomControl={false}
-              className="w-full h-full z-0"
+              zoom={4.5} 
+              zoomSnap={0.1}
+              zoomDelta={0.1}
+              zoomControl={true}
+              className="w-full h-full z-0 [&_.leaflet-control-attribution]:hidden"
+              style={{ background: '#0B1015' }}
             >
+              <div onMouseLeave={() => setHoveredState(null)} className="absolute inset-0 w-full h-full z-10 pointer-events-none"></div>
               <TileLayer
-                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                key={mapView}
+                url={
+                  mapView === 'satellite' ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" :
+                  mapView === 'terrain' ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}" :
+                  "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                }
               />
-              <ZoomControl position="bottomright" />
+              <MapBoundsFit data={indiaGeoJson} />
+              <GeoJSON 
+                key={activeLayer || 'none'}
+                data={indiaGeoJson as any} 
+                style={(feature: any) => {
+                  if (!activeLayer) {
+                    return {
+                      color: mapBoundaries ? 'rgba(255,255,255,0.3)' : 'transparent',
+                      weight: mapBoundaries ? 1 : 0,
+                      fillColor: 'transparent',
+                      fillOpacity: 0
+                    };
+                  }
+                  const stateName = feature?.properties.NAME_1 || feature?.properties.name || 'Unknown';
+                  const hash = hashString(stateName);
+                  const landUseIndex = hash % PALETTES['Land Use'].length;
+                  const climateRiskIndex = hash % PALETTES['Climate Risk'].length;
+                  const currentData = activeLayer === 'Land Use' ? PALETTES['Land Use'][landUseIndex] : PALETTES['Climate Risk'][climateRiskIndex];
+                  return {
+                    color: mapBoundaries ? 'rgba(255,255,255,0.7)' : 'transparent',
+                    weight: mapBoundaries ? 1.5 : 0,
+                    fillColor: currentData.color,
+                    fillOpacity: 0.35
+                  };
+                }}
+                onEachFeature={(feature, layer) => {
+                  layer.on({
+                    mouseover: (e) => {
+                      const tLayer = e.target;
+                      tLayer.setStyle({
+                        weight: 2,
+                        color: '#00FFC4',
+                        fillOpacity: 0.4
+                      });
+                      tLayer.bringToFront();
+                      const stateName = feature.properties.NAME_1 || feature.properties.name || 'Unknown';
+                      const hash = hashString(stateName);
+                      setHoveredState({
+                        name: stateName,
+                        data: {
+                          'Land Use': PALETTES['Land Use'][hash % PALETTES['Land Use'].length],
+                          'Climate Risk': PALETTES['Climate Risk'][hash % PALETTES['Climate Risk'].length]
+                        }
+                      });
+                    },
+                    mouseout: (e) => {
+                      const tLayer = e.target;
+                      tLayer.setStyle({
+                        weight: mapBoundaries ? (activeLayer ? 1.5 : 1) : 0,
+                        color: mapBoundaries ? (activeLayer ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)') : 'transparent',
+                        fillOpacity: activeLayer ? 0.35 : 0
+                      });
+                      setHoveredState(null);
+                    }
+                  });
+                }}
+              />
             </MapContainer>
+
+            {/* FLOATING CALLOUTS (Static Absolute positioned) */}
+            <div className="absolute top-[8%] right-[2%] z-20 pointer-events-none hidden md:block scale-75 origin-top-right">
+              <div className="bg-[#1E293B]/90 backdrop-blur-md border border-white/10 rounded-xl px-4 py-3 shadow-lg relative">
+                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Forest Cover</div>
+                <div className="text-xl font-black text-emerald-400 leading-none">21.3%</div>
+              </div>
+            </div>
+
+            <div className="absolute top-[35%] right-[2%] z-20 pointer-events-none hidden md:block scale-75 origin-top-right">
+              <div className="bg-[#1E293B]/90 backdrop-blur-md border border-white/10 rounded-xl px-4 py-3 shadow-lg relative">
+                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Climate Risk</div>
+                <div className="text-xl font-black text-amber-400 leading-none">High</div>
+              </div>
+            </div>
+            
+            <div className="absolute top-[62%] right-[2%] z-20 pointer-events-none hidden md:block scale-75 origin-top-right">
+              <div className="bg-[#1E293B]/90 backdrop-blur-md border border-white/10 rounded-xl px-4 py-3 shadow-lg relative">
+                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Urban Expansion</div>
+                <div className="text-xl font-black text-blue-400 leading-none">+2.8%</div>
+              </div>
+            </div>
+
+            {/* HOVER TOOLTIP */}
+            {hoveredState && (
+              <div 
+                className="fixed z-[9999] pointer-events-none bg-[#0F172A]/95 backdrop-blur-xl border border-teal-500/30 rounded-xl p-3.5 shadow-2xl w-48 transform -translate-x-1/2 -translate-y-[120%] transition-opacity duration-200"
+                style={{ left: mousePos.x, top: mousePos.y }}
+              >
+                <div className="text-[9px] font-bold text-teal-400 uppercase tracking-widest mb-0.5">State Region</div>
+                {mapLabels && (
+                  <h3 className="text-sm font-black text-white leading-tight mb-3">
+                    {hoveredState.name}
+                  </h3>
+                )}
+                
+                <div className="space-y-2 bg-white/5 rounded-lg p-2 border border-white/5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">Land Use</span>
+                    <span className="text-[10px] font-black" style={{ color: hoveredState.data['Land Use'].color }}>
+                      {hoveredState.data['Land Use'].type}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">Climate Risk</span>
+                    <span className="text-[10px] font-black" style={{ color: hoveredState.data['Climate Risk'].color }}>
+                      {hoveredState.data['Climate Risk'].type}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Land Use Chart */}
-        <div className="lg:col-span-3 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col h-[400px]">
-          <div className="p-4 border-b border-slate-100">
-            <h3 className="text-base font-bold text-slate-800 leading-tight">Land Use Distribution</h3>
-            <p className="text-xs text-slate-500 font-medium">Across India (in %)</p>
+        <div className="lg:col-span-3 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[500px]">
+          <div className="px-6 py-5 border-b border-slate-100">
+            <h3 className="text-sm font-bold text-slate-900 leading-none mb-1">Land Use Distribution</h3>
+            <p className="text-[11px] font-medium text-slate-500 leading-none">Across India (in %)</p>
           </div>
-          <div className="flex-1 p-4 flex flex-col items-center justify-center relative">
-            <div className="h-48 w-full relative">
+          <div className="flex-1 p-6 flex flex-col">
+            <div className="h-[220px] w-full relative mb-6">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={LAND_USE_DATA}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={2}
+                    innerRadius={70}
+                    outerRadius={95}
+                    paddingAngle={3}
                     dataKey="value"
                     stroke="none"
+                    cornerRadius={4}
                   >
                     {LAND_USE_DATA.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
                   <Tooltip 
-                    formatter={(value: any) => [`${value}%`, 'Area']}
-                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    formatter={(value: any) => [`${value}%`, 'Coverage']}
+                    contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '12px', fontWeight: 'bold' }}
                   />
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-xs font-medium text-slate-500">Total Land</span>
-                <span className="text-sm font-bold text-slate-800">328.7 M ha</span>
+                <span className="text-xl font-black text-slate-900">328.7 M Ha</span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide text-center leading-tight mt-1">Total Mapped<br/>Land</span>
               </div>
             </div>
             
-            <div className="w-full mt-4 grid grid-cols-2 gap-x-2 gap-y-3">
+            <div className="flex-1 flex flex-col gap-3 overflow-y-auto custom-scrollbar pr-2">
               {LAND_USE_DATA.map((item, i) => (
-                <div key={i} className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }}></div>
-                    <span className="text-[11px] font-medium text-slate-600">{item.name}</span>
+                <div key={i} className="flex items-center justify-between group">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: item.color }}></div>
+                    <span className="text-xs font-semibold text-slate-600">{item.name}</span>
                   </div>
-                  <span className="text-[11px] font-bold text-slate-800">{item.value}%</span>
+                  <span className="text-xs font-bold text-slate-900">{item.value}%</span>
                 </div>
               ))}
             </div>
@@ -318,64 +563,84 @@ export function Overview() {
         </div>
 
         {/* Climate Risk */}
-        <div className="lg:col-span-3 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col h-[400px]">
-          <div className="p-4 border-b border-slate-100">
-            <h3 className="text-base font-bold text-slate-800 leading-tight">Climate Risk Overview</h3>
-            <p className="text-xs text-slate-500 font-medium">High risk zones across India</p>
+        <div className="lg:col-span-3 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[500px]">
+          <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 leading-none mb-1 flex items-center gap-2">
+                <AlertTriangle className="w-3.5 h-3.5 text-bhu-danger" /> Climate Risk
+              </h3>
+              <p className="text-[11px] font-medium text-slate-500 leading-none">Vulnerability zones</p>
+            </div>
           </div>
-          <div className="flex-1 p-4 relative flex items-center justify-center bg-slate-50">
-            {/* Placeholder for India Risk Map graphic to match screenshot */}
-            <div className="w-48 h-56 bg-[url('https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/India_location_map.svg/800px-India_location_map.svg.png')] bg-contain bg-center bg-no-repeat opacity-80" style={{ filter: 'hue-rotate(-50deg) saturate(300%)' }}></div>
-            
-            <div className="absolute right-4 top-4 flex flex-col gap-2">
-              {[
-                { label: 'Very High', color: 'bg-red-600' },
-                { label: 'High', color: 'bg-orange-500' },
-                { label: 'Moderate', color: 'bg-amber-400' },
-                { label: 'Low', color: 'bg-emerald-500' },
-              ].map((l, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <div className={clsx("w-2 h-2 rounded-full", l.color)}></div>
-                  <span className="text-[10px] font-bold text-slate-600">{l.label}</span>
-                </div>
-              ))}
+          
+          <div className="flex-1 flex flex-col p-6">
+            <div className="flex-1 relative flex justify-center items-center py-4">
+              <div 
+                className="w-full h-full bg-contain bg-center bg-no-repeat opacity-50 drop-shadow-sm" 
+                style={{ 
+                  backgroundImage: "url('https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/India_location_map.svg/800px-India_location_map.svg.png')",
+                  filter: 'grayscale(100%) contrast(1.2)' 
+                }}
+              ></div>
+              
+              <div className="absolute inset-0 flex flex-col justify-center px-4 gap-4">
+                {[
+                  { label: 'Very High Risk', color: 'bg-bhu-danger' },
+                  { label: 'High Risk', color: 'bg-bhu-warning' },
+                  { label: 'Moderate Risk', color: 'bg-amber-400' },
+                  { label: 'Low Risk', color: 'bg-bhu-success' },
+                ].map((l, i) => (
+                  <div key={i} className="flex items-center gap-3 bg-white/95 backdrop-blur shadow-sm border border-slate-100 px-4 py-2.5 rounded-xl">
+                    <div className={clsx("w-2 h-2 rounded-full", l.color)}></div>
+                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">{l.label}</span>
+                  </div>
+                ))}
+              </div>
             </div>
             
-            <button className="absolute bottom-4 right-4 text-[10px] font-bold text-indigo-700 bg-white border border-indigo-100 px-3 py-1.5 rounded-full shadow-sm hover:bg-indigo-50 transition-colors flex items-center gap-1">
-              Explore in GIS <ArrowRight className="w-3 h-3" />
-            </button>
+            <div className="bg-red-50/50 border border-red-100 rounded-xl p-4 mt-auto">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-bhu-danger shrink-0 mt-0.5" />
+                <div>
+                  <div className="text-xs font-bold text-slate-900 mb-1">12 coastal districts flagged</div>
+                  <div className="text-[11px] font-medium text-slate-600 leading-relaxed">High climate vulnerability due to sea level rise and extreme weather events.</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
       </div>
 
-      {/* BOTTOM SECTION */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 mb-5">
+      {/* ROW 4: SECONDARY ANALYTICS */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Key Insights */}
-        <div className="lg:col-span-6 bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col">
-          <div className="p-4 border-b border-slate-100 flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <Lightbulb className="w-4 h-4 text-amber-500" />
-              <h3 className="text-base font-bold text-slate-800">Key Insights</h3>
-            </div>
-            <button className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
-              View All <ArrowRight className="w-3 h-3" />
+        <div className={clsx("bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col", dashActivity ? "lg:col-span-7" : "lg:col-span-12")}>
+          <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center">
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <Lightbulb className="w-4 h-4 text-bhu-warning" /> Key Insights
+            </h3>
+            <button onClick={() => navigate('/data/insights')} className="text-[11px] font-bold text-bhu-blue hover:text-blue-800 flex items-center gap-1">
+              View All <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
-          <div className="p-4 flex flex-col gap-3">
+          <div className="p-6 grid grid-cols-1 gap-4">
             {[
-              { icon: TrendingUp, color: 'text-indigo-600', bg: 'bg-indigo-50', text: 'Urban expansion is increasing by 2.8% annually in top 10 metro regions.', trend: 'up' },
-              { icon: AlertTriangle, color: 'text-orange-600', bg: 'bg-orange-50', text: 'High climate vulnerability in 12 coastal districts needs immediate attention.', trend: 'up' },
-              { icon: Activity, color: 'text-emerald-600', bg: 'bg-emerald-50', text: 'Policy simulation shows 15% higher agricultural productivity with proposed reforms.', trend: 'up' },
+              { icon: TrendingUp, color: 'text-bhu-blue', bg: 'bg-blue-50', cat: 'Urban Expansion', title: 'Urban expansion is increasing by 2.8% annually in top 10 metro regions.', trend: '+2.8%', tColor: 'text-bhu-blue' },
+              { icon: AlertTriangle, color: 'text-bhu-danger', bg: 'bg-red-50', cat: 'Climate Risk', title: 'High climate vulnerability in 12 coastal districts needs immediate attention.', trend: '+15%', tColor: 'text-bhu-danger' },
+              { icon: Activity, color: 'text-bhu-primary', bg: 'bg-bhu-light', cat: 'Policy Impact', title: 'Policy simulation shows 15% higher agricultural productivity with proposed reforms.', trend: '+15%', tColor: 'text-bhu-success' },
             ].map((insight, i) => (
-              <div key={i} className="flex items-start gap-3 p-3 rounded-xl border border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer">
-                <div className={clsx("w-8 h-8 rounded-lg flex items-center justify-center shrink-0", insight.bg, insight.color)}>
-                  <insight.icon className="w-4 h-4" />
+              <div key={i} className="flex items-start gap-5 p-5 rounded-xl border border-slate-100 hover:border-slate-300 hover:shadow-sm transition-all group cursor-pointer bg-slate-50/50">
+                <div className={clsx("w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-sm border border-slate-100 bg-white", insight.color)}>
+                  <insight.icon className="w-5 h-5" />
                 </div>
-                <p className="text-xs font-medium text-slate-700 flex-1 pt-1.5">{insight.text}</p>
-                <div className="text-emerald-500 pt-1.5">
-                  <ArrowUpRight className="w-4 h-4" />
+                <div className="flex-1 pt-0.5">
+                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">{insight.cat}</div>
+                  <div className="text-sm font-semibold text-slate-900 leading-relaxed pr-4">{insight.title}</div>
+                </div>
+                <div className={clsx("flex items-center gap-1 font-bold text-xs pt-1", insight.tColor)}>
+                  <ArrowUpRight className="w-4 h-4" /> {insight.trend}
                 </div>
               </div>
             ))}
@@ -383,90 +648,95 @@ export function Overview() {
         </div>
 
         {/* Recent Activity */}
-        <div className="lg:col-span-6 bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col">
-          <div className="p-4 border-b border-slate-100 flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <Activity className="w-4 h-4 text-slate-500" />
-              <h3 className="text-base font-bold text-slate-800">Recent Activity</h3>
-            </div>
-            <button className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
-              View All <ArrowRight className="w-3 h-3" />
+        {dashActivity && (
+          <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+          <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center">
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <Activity className="w-4 h-4 text-slate-400" /> Recent Activity
+            </h3>
+            <button onClick={() => navigate('/governance/audit')} className="text-[11px] font-bold text-bhu-blue hover:text-blue-800 flex items-center gap-1">
+              View All <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
-          <div className="p-4 flex flex-col gap-4">
-            {[
-              { type: 'New research paper added', title: '"Climate Resilience in Indian Land Systems"', time: '2h ago', color: 'text-blue-600', bg: 'bg-blue-50', icon: FileText },
-              { type: 'Policy document updated', title: '"Land Acquisition Act (Amendment)"', time: '4h ago', color: 'text-amber-600', bg: 'bg-amber-50', icon: FileText },
-              { type: 'New dataset available', title: '"Satellite Imagery - 2024"', time: '6h ago', color: 'text-indigo-600', bg: 'bg-indigo-50', icon: Database },
-              { type: 'Hackathon registration open', title: '"Land Innovation Challenge 2025"', time: '1d ago', color: 'text-rose-600', bg: 'bg-rose-50', icon: Lightbulb },
-            ].map((act, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className={clsx("w-8 h-8 rounded-full flex items-center justify-center shrink-0", act.bg, act.color)}>
-                  <act.icon className="w-4 h-4" />
+          <div className="p-6 flex flex-col">
+            <div className="relative border-l-2 border-slate-100 ml-4 space-y-7 pb-2">
+              {[
+                { type: 'Research', title: 'New research paper added', desc: '"Climate Resilience in Indian Land Systems"', time: '2h ago', color: 'text-bhu-blue', bg: 'bg-white', border: 'border-bhu-blue', icon: FileText },
+                { type: 'Policy', title: 'Policy document updated', desc: '"Land Acquisition Act (Amendment)"', time: '4h ago', color: 'text-bhu-warning', bg: 'bg-white', border: 'border-bhu-warning', icon: FileText },
+                { type: 'Dataset', title: 'New dataset available', desc: '"Satellite Imagery - 2024"', time: '6h ago', color: 'text-purple-600', bg: 'bg-white', border: 'border-purple-600', icon: Database },
+                { type: 'Innovation', title: 'Hackathon registration open', desc: '"Land Innovation Challenge 2025"', time: '1d ago', color: 'text-bhu-danger', bg: 'bg-white', border: 'border-bhu-danger', icon: Lightbulb },
+              ].map((act, i) => (
+                <div key={i} className="relative pl-6">
+                  <div className={clsx("absolute -left-[17px] top-1 w-8 h-8 rounded-full flex items-center justify-center shrink-0 border-2 shadow-sm", act.bg, act.color, act.border)}>
+                    <act.icon className="w-3.5 h-3.5" />
+                  </div>
+                  <div className="flex flex-col gap-1 pt-0.5">
+                    <div className="flex justify-between items-center gap-4">
+                      <span className="text-xs font-bold text-slate-900">{act.title}</span>
+                      <span className="text-[11px] font-semibold text-slate-400 bg-slate-50 px-2 py-0.5 rounded">{act.time}</span>
+                    </div>
+                    <div className="text-[13px] font-medium text-slate-600">{act.desc}</div>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{act.type}</div>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <div className="text-[10px] font-bold text-slate-500">{act.type}</div>
-                  <div className="text-xs font-semibold text-slate-800">{act.title}</div>
-                </div>
-                <div className="text-[10px] font-medium text-slate-400">{act.time}</div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
+        )}
 
       </div>
 
-      {/* QUICK ACCESS STRIP */}
-      <div className="flex flex-col lg:flex-row gap-5 items-stretch">
+      {/* ROW 5: QUICK ACCESS & CTA */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        <div className="lg:w-3/4 bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex flex-col">
-          <div className="flex items-center gap-2 mb-3">
-            <SearchIcon className="w-4 h-4 text-slate-500" />
-            <h3 className="text-sm font-bold text-slate-800">Quick Access</h3>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {dashQuickAccess && (
+          <div className={clsx("bg-white rounded-2xl border border-slate-200 shadow-sm p-6 lg:p-8 flex flex-col justify-center", dashInnovation ? "lg:col-span-8" : "lg:col-span-12")}>
+          <h3 className="text-sm font-bold text-slate-900 mb-6 flex items-center gap-2">
+            <Zap className="w-4 h-4 text-bhu-success" /> Quick Access
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { title: 'Search Research', sub: 'Find papers & studies', icon: SearchIcon, color: 'text-blue-600', bg: 'bg-blue-50' },
-              { title: 'Explore GIS Maps', sub: 'View land use & risk', icon: MapPin, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-              { title: 'Run Policy Simulation', sub: 'Test policy outcomes', icon: PlaySquare, color: 'text-purple-600', bg: 'bg-purple-50' },
-              { title: 'Access Datasets', sub: 'Download & analyze', icon: Download, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+              { title: 'Search Research', sub: 'Find papers & policies', icon: SearchIcon, color: 'text-bhu-blue', bg: 'bg-blue-50', link: '/research/repository' },
+              { title: 'Explore GIS', sub: 'View land use maps', icon: MapPin, color: 'text-bhu-primary', bg: 'bg-bhu-light', link: '/gis/maps' },
+              { title: 'Run Simulation', sub: 'Test policy outcomes', icon: PlaySquare, color: 'text-purple-600', bg: 'bg-purple-50', link: '/policy/simulation' },
+              { title: 'Access Datasets', sub: 'Download official data', icon: Database, color: 'text-bhu-warning', bg: 'bg-amber-50', link: '/data/datasets' },
             ].map((qa, i) => (
-              <button key={i} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-indigo-100 hover:bg-indigo-50/30 transition-colors text-left group">
-                <div className={clsx("w-8 h-8 rounded-lg flex items-center justify-center shrink-0", qa.bg, qa.color)}>
-                  <qa.icon className="w-4 h-4" />
+              <button key={i} onClick={() => navigate(qa.link)} className="flex flex-col p-5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white hover:border-slate-300 hover:shadow-sm transition-all text-left group">
+                <div className={clsx("w-10 h-10 rounded-lg flex items-center justify-center mb-4 transition-transform group-hover:scale-105 shadow-sm border border-slate-100", qa.bg, qa.color)}>
+                  <qa.icon className="w-5 h-5" />
                 </div>
-                <div className="flex-1 overflow-hidden">
-                  <div className="text-xs font-bold text-slate-800 truncate">{qa.title}</div>
-                  <div className="text-[9px] font-medium text-slate-500 truncate">{qa.sub}</div>
+                <div className="text-[13px] font-bold text-slate-900 mb-1">{qa.title}</div>
+                <div className="text-[11px] font-medium text-slate-500 line-clamp-1 flex items-center justify-between w-full">
+                  {qa.sub}
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-bhu-primary transition-colors" />
                 </div>
-                <ChevronRight className="w-3 h-3 text-slate-300 group-hover:text-indigo-500" />
               </button>
             ))}
           </div>
         </div>
+        )}
 
-        {/* Innovation Hub Promo */}
-        <div className="lg:w-1/4 bg-gradient-to-br from-teal-700 to-emerald-900 rounded-2xl p-5 text-white flex flex-col justify-center relative overflow-hidden group cursor-pointer shadow-sm">
-          <div className="absolute right-0 bottom-0 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+        {dashInnovation && (
+          <div className={clsx("bg-slate-900 rounded-2xl p-8 text-white flex flex-col justify-center relative overflow-hidden group shadow-md border border-slate-800", dashQuickAccess ? "lg:col-span-4" : "lg:col-span-12")}>
+          <div 
+            className="absolute inset-0 z-0 opacity-20 bg-cover bg-center mix-blend-overlay group-hover:scale-105 transition-transform duration-700"
+            style={{ backgroundImage: "url('https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=1000&auto=format&fit=crop')" }}
+          ></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/80 to-transparent z-10"></div>
           
-          <div className="relative z-10">
-            <h3 className="text-lg font-black leading-tight mb-2">
-              Collaborate. Innovate.<br/>
-              Build a Sustainable Future.
+          <div className="relative z-20 flex-1 flex flex-col justify-end">
+            <h3 className="text-[22px] font-black leading-tight mb-2">
+              Collaborate.<br/>Innovate.
             </h3>
+            <p className="text-slate-300 text-[13px] font-medium mb-6">Build a Sustainable Future.</p>
             
-            <button className="mt-2 text-xs font-bold bg-white text-teal-900 px-4 py-2 rounded-lg hover:bg-teal-50 transition-colors inline-flex items-center gap-2">
-              Explore Innovation Hub <ArrowRight className="w-3 h-3" />
+            <button onClick={() => navigate('/innovation')} className="text-xs font-bold bg-white text-slate-900 px-5 py-3 rounded-xl hover:bg-slate-100 transition-colors inline-flex items-center justify-center gap-2 shadow-sm w-max">
+              Explore Innovation Hub <ArrowRight className="w-4 h-4" />
             </button>
           </div>
-          
-          {/* Decorative Leaf Icon */}
-          <div className="absolute -bottom-4 -right-2 text-teal-500/30">
-            <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.51c-.32-.73-.83-1.37-1.46-1.87-.19-.15-.42-.25-.66-.28L15 15h-1c-.55 0-1-.45-1-1v-2h-1c-.55 0-1-.45-1-1v-2c0-.55-.45-1-1-1H9.86l.73-.73c.18-.18.42-.27.67-.27H13c1.1 0 2-.9 2-2V4.26c3.12 1.49 5.37 4.54 5.9 8.23z" />
-            </svg>
-          </div>
         </div>
+        )}
 
       </div>
 

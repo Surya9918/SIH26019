@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Lightbulb, Send, Bot, Award, ChevronRight } from 'lucide-react';
-import { fetchApi } from '../services/api';
+import { Lightbulb, Send, Bot, Award } from 'lucide-react';
 
 export function InnovationPortal() {
   const [query, setQuery] = useState('');
