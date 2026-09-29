@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { User, LayoutDashboard, Map as MapIcon, Search, Bell, Accessibility, Check } from 'lucide-react';
+import defaultAvatar from '../assets/default-avatar.png';
 
 type SettingsTab = 'PROFILE' | 'DASHBOARD' | 'MAP' | 'SEARCH' | 'NOTIFICATIONS' | 'ACCESSIBILITY';
 
@@ -10,6 +11,8 @@ export function Settings() {
   // Settings State
   const [profileName, setProfileName] = useState('Suriya N.');
   const [profileRole, setProfileRole] = useState('Researcher');
+  const [profileEmail, setProfileEmail] = useState('suriya.n@research.gov.in');
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -19,7 +22,7 @@ export function Settings() {
   const [dashQuickAccess, setDashQuickAccess] = useState(true);
   const [dashInnovation, setDashInnovation] = useState(true);
   
-  const [mapView, setMapView] = useState('Map');
+  const [mapView, setMapView] = useState('Satellite');
   const [mapLayer, setMapLayer] = useState('Land Use');
   const [mapLabels, setMapLabels] = useState(true);
   const [mapBoundaries, setMapBoundaries] = useState(true);
@@ -44,13 +47,13 @@ export function Settings() {
       const p = JSON.parse(saved);
       setProfileName(p.profileName ?? 'Suriya N.');
       setProfileRole(p.profileRole ?? 'Researcher');
-      if (p.profileAvatar) setProfileAvatar(p.profileAvatar);
+      setProfileEmail(p.profileEmail ?? 'suriya.n@research.gov.in');
       if (p.profileAvatar) setProfileAvatar(p.profileAvatar);
       setDashKpis(p.dashKpis ?? true);
       setDashActivity(p.dashActivity ?? true);
       setDashQuickAccess(p.dashQuickAccess ?? true);
       setDashInnovation(p.dashInnovation ?? true);
-      setMapView(p.mapView ?? 'Map');
+      setMapView(p.mapView ?? 'Satellite');
       setMapLayer(p.mapLayer ?? 'Land Use');
       setMapLabels(p.mapLabels ?? true);
       setMapBoundaries(p.mapBoundaries ?? true);
@@ -68,8 +71,17 @@ export function Settings() {
   }, []);
 
   const handleSave = () => {
+    if (activeTab === 'PROFILE') {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!profileEmail.trim() || !emailRegex.test(profileEmail)) {
+        setEmailError('Enter a valid email address.');
+        return;
+      }
+      setEmailError(null);
+    }
+
     const prefs = {
-      profileName, profileRole, profileAvatar, dashKpis, dashActivity, dashQuickAccess, dashInnovation,
+      profileName, profileRole, profileEmail, profileAvatar, dashKpis, dashActivity, dashQuickAccess, dashInnovation,
       mapView, mapLayer, mapLabels, mapBoundaries,
       searchScope, searchHistory, notifResearch, notifPolicy, notifDataset, notifGis, notifInnovation,
       accMotion, accContrast, accLargerText
@@ -81,15 +93,46 @@ export function Settings() {
   };
 
   const handleReset = () => {
-    localStorage.removeItem('bhu_settings');
-    setProfileName('Suriya N.');
-    setProfileRole('Researcher');
-    setProfileAvatar(null);
+    // Preserve profile information
+    const current = JSON.parse(localStorage.getItem('bhu_settings') || '{}');
+    const preservedProfile = {
+      profileName: current.profileName ?? 'Suriya N.',
+      profileRole: current.profileRole ?? 'Researcher',
+      profileEmail: current.profileEmail ?? 'suriya.n@research.gov.in',
+      profileAvatar: current.profileAvatar || null,
+    };
+    
+    // Reset everything else
+    const resetPrefs = {
+      ...preservedProfile,
+      dashKpis: true,
+      dashActivity: true,
+      dashQuickAccess: true,
+      dashInnovation: true,
+      mapView: 'Satellite',
+      mapLayer: 'Land Use',
+      mapLabels: true,
+      mapBoundaries: true,
+      searchScope: 'All',
+      searchHistory: true,
+      notifResearch: true,
+      notifPolicy: true,
+      notifDataset: true,
+      notifGis: true,
+      notifInnovation: true,
+      accMotion: false,
+      accContrast: false,
+      accLargerText: false
+    };
+    
+    localStorage.setItem('bhu_settings', JSON.stringify(resetPrefs));
+    
+    // Update local state to match resetPrefs except for Profile which stays as is
     setDashKpis(true);
     setDashActivity(true);
     setDashQuickAccess(true);
     setDashInnovation(true);
-    setMapView('Map');
+    setMapView('Satellite');
     setMapLayer('Land Use');
     setMapLabels(true);
     setMapBoundaries(true);
@@ -169,18 +212,22 @@ export function Settings() {
               <Check className="w-4 h-4" /> Saved
             </span>
           )}
-          <button 
-            onClick={handleReset}
-            className="px-4 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
-          >
-            Reset
-          </button>
-          <button 
-            onClick={handleSave}
-            className="px-4 py-2 text-sm font-bold text-white bg-bhu-primary rounded-lg hover:bg-bhu-primary/90 transition-colors shadow-sm"
-          >
-            Save Changes
-          </button>
+          {activeTab !== 'PROFILE' && (
+            <button 
+              onClick={handleReset}
+              className="px-4 py-2 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors shadow-sm"
+            >
+              Reset Settings
+            </button>
+          )}
+          {activeTab !== 'PROFILE' && (
+            <button 
+              onClick={handleSave}
+              className="px-4 py-2 text-sm font-bold text-white bg-bhu-primary rounded-lg hover:bg-bhu-primary/90 transition-colors shadow-sm"
+            >
+              Save Changes
+            </button>
+          )}
         </div>
       </div>
 
@@ -211,7 +258,7 @@ export function Settings() {
               <h2 className="text-lg font-black text-slate-900 mb-6">Profile Information</h2>
               <div className="flex items-center gap-6 mb-8 pb-8 border-b border-slate-100">
                 <div className="w-20 h-20 rounded-full overflow-hidden border border-slate-200 shrink-0">
-                  <img src={profileAvatar || "https://i.pravatar.cc/150?u=a042581f4e29026704d"} alt="Profile" className="w-full h-full object-cover" />
+                  <img src={profileAvatar || defaultAvatar} alt="Profile" className="w-full h-full object-cover" />
                 </div>
                 <div>
                   <div className="flex items-center gap-3">
@@ -250,12 +297,40 @@ export function Settings() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-slate-700">Role</label>
-                  <input type="text" value={profileRole} onChange={e => setProfileRole(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-bhu-primary/20" />
+                  <select 
+                    value={profileRole} 
+                    onChange={e => setProfileRole(e.target.value)} 
+                    className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-bhu-primary/20 cursor-pointer"
+                  >
+                    <option value="Researcher">Researcher</option>
+                    <option value="Policy Analyst">Policy Analyst</option>
+                    <option value="GIS Analyst">GIS Analyst</option>
+                    <option value="Data Analyst">Data Analyst</option>
+                    <option value="Government Administrator">Government Administrator</option>
+                    <option value="Academic / Student">Academic / Student</option>
+                  </select>
                 </div>
                 <div className="space-y-2 col-span-2">
                   <label className="text-sm font-bold text-slate-700">Email</label>
-                  <input type="text" defaultValue="suriya.n@research.gov.in" disabled className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 text-sm text-slate-500 cursor-not-allowed" />
+                  <input 
+                    type="email" 
+                    value={profileEmail} 
+                    onChange={e => {
+                      setProfileEmail(e.target.value);
+                      if (emailError) setEmailError(null);
+                    }} 
+                    className={`w-full bg-white border ${emailError ? 'border-bhu-danger focus:ring-bhu-danger/20' : 'border-slate-200 focus:ring-bhu-primary/20'} rounded-lg px-4 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2`} 
+                  />
+                  {emailError && <p className="text-xs text-bhu-danger font-bold mt-1">{emailError}</p>}
                 </div>
+              </div>
+              <div className="pt-6 mt-6 border-t border-slate-100 flex justify-end">
+                <button 
+                  onClick={handleSave}
+                  className="px-6 py-2.5 text-sm font-bold text-white bg-bhu-primary rounded-lg hover:bg-bhu-primary/90 transition-colors shadow-sm"
+                >
+                  Save Profile Changes
+                </button>
               </div>
             </div>
           )}

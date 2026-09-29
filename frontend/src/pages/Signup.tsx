@@ -1,8 +1,46 @@
+import { useState } from 'react';
 import { Leaf } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
+const ROLES = [
+  "Researcher",
+  "Policy Analyst",
+  "GIS Analyst",
+  "Data Analyst",
+  "Government Administrator",
+  "Academic / Student"
+];
+
 export function Signup() {
   const navigate = useNavigate();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [role, setRole] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSignup = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!role) {
+      setError("Please select your role.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+    
+    // Save to shared frontend profile
+    const currentSettings = JSON.parse(localStorage.getItem('bhu_settings') || '{}');
+    currentSettings.profileName = name;
+    currentSettings.profileRole = role;
+    currentSettings.profileEmail = email;
+    localStorage.setItem('bhu_settings', JSON.stringify(currentSettings));
+    window.dispatchEvent(new Event('bhu_settings_changed'));
+    
+    navigate('/dashboard');
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 selection:bg-teal-100">
@@ -22,12 +60,15 @@ export function Signup() {
         <h2 className="text-2xl font-black text-[#0F172A] mb-2 text-center">Create an account</h2>
         <p className="text-sm text-slate-500 mb-8 text-center font-medium">Join the national land governance platform</p>
 
-        <form onSubmit={(e) => { e.preventDefault(); navigate('/login'); }} className="space-y-4">
+        <form onSubmit={handleSignup} className="space-y-4">
+          {error && <div className="text-bhu-danger text-xs font-bold bg-red-50 p-3 rounded-xl border border-red-100">{error}</div>}
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Full Name</label>
             <input 
               type="text" 
               required
+              value={name}
+              onChange={e => setName(e.target.value)}
               placeholder="Dr. Ashok Kumar"
               className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:bg-white focus:border-[#008B72] focus:ring-4 focus:ring-[#008B72]/10 outline-none transition-all"
             />
@@ -38,9 +79,23 @@ export function Signup() {
             <input 
               type="email" 
               required
+              value={email}
+              onChange={e => setEmail(e.target.value)}
               placeholder="name@domain.gov.in"
               className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:bg-white focus:border-[#008B72] focus:ring-4 focus:ring-[#008B72]/10 outline-none transition-all"
             />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Role</label>
+            <select
+              value={role}
+              onChange={e => setRole(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:bg-white focus:border-[#008B72] focus:ring-4 focus:ring-[#008B72]/10 outline-none transition-all cursor-pointer"
+            >
+              <option value="" disabled>Select your role</option>
+              {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
           </div>
 
           <div>
@@ -48,6 +103,8 @@ export function Signup() {
             <input 
               type="password" 
               required
+              value={password}
+              onChange={e => setPassword(e.target.value)}
               placeholder="••••••••"
               className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:bg-white focus:border-[#008B72] focus:ring-4 focus:ring-[#008B72]/10 outline-none transition-all"
             />
@@ -58,6 +115,8 @@ export function Signup() {
             <input 
               type="password" 
               required
+              value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)}
               placeholder="••••••••"
               className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:bg-white focus:border-[#008B72] focus:ring-4 focus:ring-[#008B72]/10 outline-none transition-all"
             />

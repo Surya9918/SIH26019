@@ -1,17 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  ArrowUpRight, 
-  Search, 
   ArrowRight,
   FileText,
   Database,
   Activity,
   Box,
-  TrendingUp,
   AlertTriangle,
   Lightbulb,
-  Search as SearchIcon,
+  Search,
   MapPin,
   PlaySquare,
   Zap,
@@ -23,6 +20,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import 'leaflet/dist/leaflet.css';
 import indiaGeoJson from '../assets/india_states.json';
 import clsx from 'clsx';
+import { formatTimeAgo } from '../utils/time';
 
 // Simple SVG sparkline component for visual enhancement
 function Sparkline({ color, trend }: { color: string, trend: 'up' | 'down' }) {
@@ -96,6 +94,14 @@ export function Overview() {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [layersOpen, setLayersOpen] = useState(false);
   const [mapView, setMapView] = useState<'map' | 'satellite' | 'terrain'>('satellite');
+  
+  const handleMapViewChange = (mode: 'map' | 'satellite' | 'terrain') => {
+    setMapView(mode);
+    if (mode === 'terrain') {
+      setActiveLayer(null);
+    }
+  };
+
   const [searchQuery, setSearchQuery] = useState('');
   const layersRef = useRef<HTMLDivElement>(null);
 
@@ -107,11 +113,41 @@ export function Overview() {
   const [mapLabels, setMapLabels] = useState(true);
   const [mapBoundaries, setMapBoundaries] = useState(true);
 
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [profileName, setProfileName] = useState('Suriya');
+
+  useEffect(() => {
+    const fetchActivity = () => {
+      const saved = localStorage.getItem('bhu_notifications');
+      if (saved) {
+        setRecentActivity(JSON.parse(saved));
+      } else {
+        setRecentActivity([]); // Or we could use INITIAL_DATA if we wanted, but empty is honest if none exists. Actually, Notifications uses INITIAL_DATA if none exists. Let's match it to be safe, or just leave it empty. The prompt says "If none exists: show an empty state."
+      }
+    };
+    fetchActivity();
+    
+    // Listen for cross-tab or same-window storage changes if we dispatch them
+    const handleStorageChange = () => fetchActivity();
+    window.addEventListener('storage', handleStorageChange);
+    // Add custom event just in case
+    window.addEventListener('bhu_notifications_changed', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('bhu_notifications_changed', handleStorageChange);
+    };
+  }, []);
+
   useEffect(() => {
     const applySettings = () => {
       const settingsStr = localStorage.getItem('bhu_settings');
       if (settingsStr) {
         const p = JSON.parse(settingsStr);
+        if (p.profileName) {
+          // just take first name for welcome message if there are spaces
+          setProfileName(p.profileName.split(' ')[0].toUpperCase());
+        }
         setDashKpis(p.dashKpis ?? true);
         setDashActivity(p.dashActivity ?? true);
         setDashQuickAccess(p.dashQuickAccess ?? true);
@@ -171,7 +207,7 @@ export function Overview() {
         <div className="relative z-10 w-full lg:w-3/5">
           <div className="text-[11px] font-bold text-bhu-primary uppercase tracking-widest mb-4 flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-bhu-primary"></span>
-            WELCOME BACK, SURIYA
+            WELCOME BACK, {profileName}
           </div>
           <h1 className="text-3xl lg:text-[2.5rem] font-black text-slate-900 tracking-tight leading-[1.1] mb-4">
             National Land Governance Intelligence
@@ -335,9 +371,9 @@ export function Overview() {
             
             {/* GIS View Toggle */}
             <div className="absolute bottom-4 left-4 z-[1000] bg-[#0F172A] backdrop-blur rounded-lg shadow-md border border-white/10 flex items-center p-1">
-              <button onClick={() => setMapView('map')} className={clsx("px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold rounded-md transition-colors", mapView === 'map' ? "bg-bhu-primary text-white" : "text-slate-400 hover:text-white")}>Map</button>
-              <button onClick={() => setMapView('satellite')} className={clsx("px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold rounded-md transition-colors", mapView === 'satellite' ? "bg-bhu-primary text-white" : "text-slate-400 hover:text-white")}>Satellite</button>
-              <button onClick={() => setMapView('terrain')} className={clsx("px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold rounded-md transition-colors", mapView === 'terrain' ? "bg-bhu-primary text-white" : "text-slate-400 hover:text-white")}>Terrain</button>
+              <button onClick={() => handleMapViewChange('map')} className={clsx("px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold rounded-md transition-colors", mapView === 'map' ? "bg-bhu-primary text-white" : "text-slate-400 hover:text-white")}>Map</button>
+              <button onClick={() => handleMapViewChange('satellite')} className={clsx("px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold rounded-md transition-colors", mapView === 'satellite' ? "bg-bhu-primary text-white" : "text-slate-400 hover:text-white")}>Satellite</button>
+              <button onClick={() => handleMapViewChange('terrain')} className={clsx("px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold rounded-md transition-colors", mapView === 'terrain' ? "bg-bhu-primary text-white" : "text-slate-400 hover:text-white")}>Terrain</button>
             </div>
 
             {/* Live Layer Badge */}
@@ -394,33 +430,49 @@ export function Overview() {
                 key={mapView}
                 url={
                   mapView === 'satellite' ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" :
-                  mapView === 'terrain' ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}" :
-                  "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                  mapView === 'terrain' ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Physical_Map/MapServer/tile/{z}/{y}/{x}" :
+                  "https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png"
                 }
               />
               <MapBoundsFit data={indiaGeoJson} />
               <GeoJSON 
-                key={activeLayer || 'none'}
+                key={`${activeLayer || 'none'}-${mapView}-${mapBoundaries}`}
                 data={indiaGeoJson as any} 
                 style={(feature: any) => {
-                  if (!activeLayer) {
-                    return {
-                      color: mapBoundaries ? 'rgba(255,255,255,0.3)' : 'transparent',
-                      weight: mapBoundaries ? 1 : 0,
-                      fillColor: 'transparent',
-                      fillOpacity: 0
-                    };
-                  }
                   const stateName = feature?.properties.NAME_1 || feature?.properties.name || 'Unknown';
                   const hash = hashString(stateName);
+
+                  if (!activeLayer) {
+                    if (mapView === 'map') {
+                      // MAP mode: Default administrative thematic fills
+                      const adminColors = ['#0F172A', '#1E293B', '#334155', '#020617', '#0F172A'];
+                      return {
+                        color: mapBoundaries ? '#475569' : 'transparent',
+                        weight: mapBoundaries ? 1.5 : 0,
+                        fillColor: adminColors[hash % adminColors.length],
+                        fillOpacity: 0.9
+                      };
+                    } else {
+                      // SATELLITE or TERRAIN mode: Transparent fill, boundaries only
+                      return {
+                        color: mapBoundaries ? (mapView === 'satellite' ? 'rgba(255,255,255,0.4)' : 'rgba(51, 65, 85, 0.85)') : 'transparent',
+                        weight: mapBoundaries ? (mapView === 'satellite' ? 1.5 : 1.2) : 0,
+                        fillColor: 'transparent',
+                        fillOpacity: 0
+                      };
+                    }
+                  }
+                  
+                  // When an active GIS layer is enabled
                   const landUseIndex = hash % PALETTES['Land Use'].length;
                   const climateRiskIndex = hash % PALETTES['Climate Risk'].length;
                   const currentData = activeLayer === 'Land Use' ? PALETTES['Land Use'][landUseIndex] : PALETTES['Climate Risk'][climateRiskIndex];
+                  
                   return {
-                    color: mapBoundaries ? 'rgba(255,255,255,0.7)' : 'transparent',
-                    weight: mapBoundaries ? 1.5 : 0,
+                    color: mapBoundaries ? (mapView === 'map' ? 'rgba(255,255,255,0.4)' : (mapView === 'satellite' ? 'rgba(255,255,255,0.7)' : 'rgba(51, 65, 85, 0.85)')) : 'transparent',
+                    weight: mapBoundaries ? (mapView === 'terrain' ? 1.2 : 1.5) : 0,
                     fillColor: currentData.color,
-                    fillOpacity: 0.35
+                    fillOpacity: mapView === 'map' ? 0.7 : (mapView === 'terrain' ? 0.35 : 0.5)
                   };
                 }}
                 onEachFeature={(feature, layer) => {
@@ -430,7 +482,7 @@ export function Overview() {
                       tLayer.setStyle({
                         weight: 2,
                         color: '#00FFC4',
-                        fillOpacity: 0.4
+                        fillOpacity: mapView === 'map' && !activeLayer ? 1 : 0.6
                       });
                       tLayer.bringToFront();
                       const stateName = feature.properties.NAME_1 || feature.properties.name || 'Unknown';
@@ -445,11 +497,37 @@ export function Overview() {
                     },
                     mouseout: (e) => {
                       const tLayer = e.target;
-                      tLayer.setStyle({
-                        weight: mapBoundaries ? (activeLayer ? 1.5 : 1) : 0,
-                        color: mapBoundaries ? (activeLayer ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)') : 'transparent',
-                        fillOpacity: activeLayer ? 0.35 : 0
-                      });
+                      const stateName = feature?.properties.NAME_1 || feature?.properties.name || 'Unknown';
+                      const hash = hashString(stateName);
+
+                      if (!activeLayer) {
+                        if (mapView === 'map') {
+                          const adminColors = ['#0F172A', '#1E293B', '#334155', '#020617', '#0F172A'];
+                          tLayer.setStyle({
+                            color: mapBoundaries ? '#475569' : 'transparent',
+                            weight: mapBoundaries ? 1.5 : 0,
+                            fillColor: adminColors[hash % adminColors.length],
+                            fillOpacity: 0.9
+                          });
+                        } else {
+                          tLayer.setStyle({
+                            color: mapBoundaries ? (mapView === 'satellite' ? 'rgba(255,255,255,0.4)' : 'rgba(51, 65, 85, 0.85)') : 'transparent',
+                            weight: mapBoundaries ? (mapView === 'satellite' ? 1.5 : 1.2) : 0,
+                            fillColor: 'transparent',
+                            fillOpacity: 0
+                          });
+                        }
+                      } else {
+                        const landUseIndex = hash % PALETTES['Land Use'].length;
+                        const climateRiskIndex = hash % PALETTES['Climate Risk'].length;
+                        const currentData = activeLayer === 'Land Use' ? PALETTES['Land Use'][landUseIndex] : PALETTES['Climate Risk'][climateRiskIndex];
+                        tLayer.setStyle({
+                          color: mapBoundaries ? (mapView === 'map' ? 'rgba(255,255,255,0.4)' : (mapView === 'satellite' ? 'rgba(255,255,255,0.7)' : 'rgba(51, 65, 85, 0.85)')) : 'transparent',
+                          weight: mapBoundaries ? (mapView === 'terrain' ? 1.2 : 1.5) : 0,
+                          fillColor: currentData.color,
+                          fillOpacity: mapView === 'map' ? 0.7 : (mapView === 'terrain' ? 0.35 : 0.5)
+                        });
+                      }
                       setHoveredState(null);
                     }
                   });
@@ -625,25 +703,12 @@ export function Overview() {
               View All <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
-          <div className="p-6 grid grid-cols-1 gap-4">
-            {[
-              { icon: TrendingUp, color: 'text-bhu-blue', bg: 'bg-blue-50', cat: 'Urban Expansion', title: 'Urban expansion is increasing by 2.8% annually in top 10 metro regions.', trend: '+2.8%', tColor: 'text-bhu-blue' },
-              { icon: AlertTriangle, color: 'text-bhu-danger', bg: 'bg-red-50', cat: 'Climate Risk', title: 'High climate vulnerability in 12 coastal districts needs immediate attention.', trend: '+15%', tColor: 'text-bhu-danger' },
-              { icon: Activity, color: 'text-bhu-primary', bg: 'bg-bhu-light', cat: 'Policy Impact', title: 'Policy simulation shows 15% higher agricultural productivity with proposed reforms.', trend: '+15%', tColor: 'text-bhu-success' },
-            ].map((insight, i) => (
-              <div key={i} className="flex items-start gap-5 p-5 rounded-xl border border-slate-100 hover:border-slate-300 hover:shadow-sm transition-all group cursor-pointer bg-slate-50/50">
-                <div className={clsx("w-12 h-12 rounded-xl flex items-center justify-center shrink-0 shadow-sm border border-slate-100 bg-white", insight.color)}>
-                  <insight.icon className="w-5 h-5" />
-                </div>
-                <div className="flex-1 pt-0.5">
-                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">{insight.cat}</div>
-                  <div className="text-sm font-semibold text-slate-900 leading-relaxed pr-4">{insight.title}</div>
-                </div>
-                <div className={clsx("flex items-center gap-1 font-bold text-xs pt-1", insight.tColor)}>
-                  <ArrowUpRight className="w-4 h-4" /> {insight.trend}
-                </div>
-              </div>
-            ))}
+          <div className="p-8 text-center bg-slate-50/50 flex flex-col items-center justify-center flex-1 h-full">
+            <Lightbulb className="w-10 h-10 text-slate-300 mb-3" />
+            <p className="text-sm font-medium text-slate-600 mb-4">No analytical insights available yet.</p>
+            <button onClick={() => navigate('/data/insights')} className="text-xs font-bold bg-white text-slate-700 px-4 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors shadow-sm">
+              Explore Analytics
+            </button>
           </div>
         </div>
 
@@ -654,33 +719,53 @@ export function Overview() {
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <Activity className="w-4 h-4 text-slate-400" /> Recent Activity
             </h3>
-            <button onClick={() => navigate('/governance/audit')} className="text-[11px] font-bold text-bhu-blue hover:text-blue-800 flex items-center gap-1">
+            <button onClick={() => navigate('/notifications')} className="text-[11px] font-bold text-bhu-blue hover:text-blue-800 flex items-center gap-1">
               View All <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
-          <div className="p-6 flex flex-col">
-            <div className="relative border-l-2 border-slate-100 ml-4 space-y-7 pb-2">
-              {[
-                { type: 'Research', title: 'New research paper added', desc: '"Climate Resilience in Indian Land Systems"', time: '2h ago', color: 'text-bhu-blue', bg: 'bg-white', border: 'border-bhu-blue', icon: FileText },
-                { type: 'Policy', title: 'Policy document updated', desc: '"Land Acquisition Act (Amendment)"', time: '4h ago', color: 'text-bhu-warning', bg: 'bg-white', border: 'border-bhu-warning', icon: FileText },
-                { type: 'Dataset', title: 'New dataset available', desc: '"Satellite Imagery - 2024"', time: '6h ago', color: 'text-purple-600', bg: 'bg-white', border: 'border-purple-600', icon: Database },
-                { type: 'Innovation', title: 'Hackathon registration open', desc: '"Land Innovation Challenge 2025"', time: '1d ago', color: 'text-bhu-danger', bg: 'bg-white', border: 'border-bhu-danger', icon: Lightbulb },
-              ].map((act, i) => (
-                <div key={i} className="relative pl-6">
-                  <div className={clsx("absolute -left-[17px] top-1 w-8 h-8 rounded-full flex items-center justify-center shrink-0 border-2 shadow-sm", act.bg, act.color, act.border)}>
-                    <act.icon className="w-3.5 h-3.5" />
-                  </div>
-                  <div className="flex flex-col gap-1 pt-0.5">
-                    <div className="flex justify-between items-center gap-4">
-                      <span className="text-xs font-bold text-slate-900">{act.title}</span>
-                      <span className="text-[11px] font-semibold text-slate-400 bg-slate-50 px-2 py-0.5 rounded">{act.time}</span>
+          <div className="p-6 flex flex-col flex-1">
+            {recentActivity && recentActivity.length > 0 ? (
+              <div className="relative border-l-2 border-slate-100 ml-4 space-y-7 pb-2">
+                {recentActivity.slice(0, 5).map((act, i) => {
+                  let ActIcon = FileText;
+                  let actColor = 'text-slate-600';
+                  let actBg = 'bg-slate-50';
+                  let actBorder = 'border-slate-600';
+                  
+                  if (act.category === 'RESEARCH') { ActIcon = FileText; actColor = 'text-blue-600'; actBg = 'bg-blue-50'; actBorder = 'border-blue-600'; }
+                  if (act.category === 'POLICY') { ActIcon = FileText; actColor = 'text-amber-600'; actBg = 'bg-amber-50'; actBorder = 'border-amber-600'; }
+                  if (act.category === 'DATASET') { ActIcon = Database; actColor = 'text-emerald-600'; actBg = 'bg-emerald-50'; actBorder = 'border-emerald-600'; }
+                  if (act.category === 'GIS') { ActIcon = Globe; actColor = 'text-purple-600'; actBg = 'bg-purple-50'; actBorder = 'border-purple-600'; }
+                  if (act.category === 'INNOVATION') { ActIcon = Box; actColor = 'text-rose-600'; actBg = 'bg-rose-50'; actBorder = 'border-rose-600'; }
+
+                  return (
+                    <div key={act.id || i} className="relative pl-6">
+                      <div className={clsx("absolute -left-[17px] top-1 w-8 h-8 rounded-full flex items-center justify-center shrink-0 border-2 shadow-sm", actBg, actColor, actBorder)}>
+                        <ActIcon className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex flex-col gap-1 pt-0.5">
+                        <div className="flex justify-between items-center gap-4">
+                          <span className="text-xs font-bold text-slate-900">{act.title}</span>
+                          <span className="text-[11px] font-semibold text-slate-400 bg-slate-50 px-2 py-0.5 rounded">
+                            {act.timestamp ? formatTimeAgo(act.timestamp) : act.time}
+                          </span>
+                        </div>
+                        <div className="text-[13px] font-medium text-slate-600 line-clamp-1">{act.description}</div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{act.category}</div>
+                      </div>
                     </div>
-                    <div className="text-[13px] font-medium text-slate-600">{act.desc}</div>
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{act.type}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center py-8 text-center">
+                <Activity className="w-10 h-10 text-slate-300 mb-3" />
+                <p className="text-sm font-medium text-slate-600 mb-4">No recent activity available.</p>
+                <button onClick={() => navigate('/research')} className="text-xs font-bold bg-white text-slate-700 px-4 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors shadow-sm">
+                  Explore Research
+                </button>
+              </div>
+            )}
           </div>
         </div>
         )}
@@ -697,7 +782,7 @@ export function Overview() {
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { title: 'Search Research', sub: 'Find papers & policies', icon: SearchIcon, color: 'text-bhu-blue', bg: 'bg-blue-50', link: '/research/repository' },
+              { title: 'Search Research', sub: 'Find papers & policies', icon: Search, color: 'text-bhu-blue', bg: 'bg-blue-50', link: '/research/repository' },
               { title: 'Explore GIS', sub: 'View land use maps', icon: MapPin, color: 'text-bhu-primary', bg: 'bg-bhu-light', link: '/gis/maps' },
               { title: 'Run Simulation', sub: 'Test policy outcomes', icon: PlaySquare, color: 'text-purple-600', bg: 'bg-purple-50', link: '/policy/simulation' },
               { title: 'Access Datasets', sub: 'Download official data', icon: Database, color: 'text-bhu-warning', bg: 'bg-amber-50', link: '/data/datasets' },

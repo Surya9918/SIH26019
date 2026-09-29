@@ -11,7 +11,7 @@ export function GisStudio() {
   const [activeLayer, setActiveLayer] = useState<string | null>(null);
   const [geoData, setGeoData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [mapView, setMapView] = useState<'map' | 'satellite' | 'terrain'>('map');
+  const [mapView, setMapView] = useState<'map' | 'satellite' | 'terrain'>('satellite');
 
   useEffect(() => {
     const applySettings = () => {

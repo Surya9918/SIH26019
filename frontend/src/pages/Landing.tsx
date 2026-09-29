@@ -69,6 +69,40 @@ function GlanceDropdown() {
 
 export function Landing() {
   const navigate = useNavigate();
+  const [authProfile, setAuthProfile] = useState<{name: string, role: string} | null>(null);
+
+  useEffect(() => {
+    const checkAuth = () => {
+      const saved = localStorage.getItem('bhu_settings');
+      if (saved) {
+        const p = JSON.parse(saved);
+        if (p.profileName) {
+          setAuthProfile({ name: p.profileName.split(' ')[0], role: p.profileRole || '' });
+        } else {
+          setAuthProfile(null);
+        }
+      } else {
+        setAuthProfile(null);
+      }
+    };
+    checkAuth();
+    window.addEventListener('bhu_settings_changed', checkAuth);
+    return () => window.removeEventListener('bhu_settings_changed', checkAuth);
+  }, []);
+
+  const handleSignOut = () => {
+    const saved = localStorage.getItem('bhu_settings');
+    if (saved) {
+      const p = JSON.parse(saved);
+      delete p.profileName;
+      delete p.profileEmail;
+      delete p.profileRole;
+      delete p.profileAvatar;
+      localStorage.setItem('bhu_settings', JSON.stringify(p));
+    }
+    window.dispatchEvent(new Event('bhu_settings_changed'));
+  };
+
   return (
     <div className="min-h-screen font-sans selection:bg-teal-100 text-slate-900 overflow-x-hidden">
       {/* BRANDING */}
@@ -84,12 +118,28 @@ export function Landing() {
 
       {/* AUTH ACTIONS */}
       <div className="absolute top-[32px] right-[40px] lg:right-[52px] z-50 flex items-center gap-3">
-        <Link to="/login" className="text-[13px] font-bold text-[#0F172A] px-4 py-2.5 rounded-lg hover:bg-slate-100 transition-colors">
-          Login
-        </Link>
-        <Link to="/signup" className="text-[13px] font-bold bg-[#008B72] text-white px-5 py-2.5 rounded-xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all flex items-center gap-1.5">
-          Sign Up <ArrowRight className="w-3.5 h-3.5" />
-        </Link>
+        {authProfile ? (
+          <>
+            <Link to="/profile" className="text-[13px] font-bold text-[#0F172A] px-4 py-2.5 rounded-lg hover:bg-slate-100 transition-colors">
+              {authProfile.name}
+            </Link>
+            <button 
+              onClick={handleSignOut}
+              className="text-[13px] font-bold text-slate-500 px-4 py-2.5 rounded-lg hover:bg-slate-100 hover:text-slate-800 transition-colors"
+            >
+              Sign Out
+            </button>
+          </>
+        ) : (
+          <>
+            <Link to="/login" className="text-[13px] font-bold text-[#0F172A] px-4 py-2.5 rounded-lg hover:bg-slate-100 transition-colors">
+              Login
+            </Link>
+            <Link to="/signup" className="text-[13px] font-bold bg-[#008B72] text-white px-5 py-2.5 rounded-xl shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all flex items-center gap-1.5">
+              Sign Up <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </>
+        )}
       </div>
 
       {/* HERO SECTION */}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, Bell, Leaf, User, Bookmark, Settings as SettingsIcon, LogOut } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import defaultAvatar from '../../assets/default-avatar.png';
 
 export function Header() {
   const [profileOpen, setProfileOpen] = useState(false);
@@ -218,7 +219,7 @@ export function Header() {
               <span className="text-xs text-bhu-secondary-text font-medium">{profileRole}</span>
             </div>
             <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-slate-100 bg-slate-50 shadow-sm">
-              <img src={profileAvatar || "https://i.pravatar.cc/150?u=a042581f4e29026704d"} alt="Profile" className="w-full h-full object-cover" />
+              <img src={profileAvatar || defaultAvatar} alt="Profile" className="w-full h-full object-cover" />
             </div>
           </button>
 
@@ -230,7 +231,7 @@ export function Header() {
           >
             <div className="p-4 border-b border-slate-100 flex items-center gap-3">
               <div className="w-10 h-10 rounded-full overflow-hidden border border-slate-200 shrink-0">
-                <img src={profileAvatar || "https://i.pravatar.cc/150?u=a042581f4e29026704d"} alt="Profile" className="w-full h-full object-cover" />
+                <img src={profileAvatar || defaultAvatar} alt="Profile" className="w-full h-full object-cover" />
               </div>
               <div className="flex flex-col">
                 <span className="text-sm font-bold text-slate-800 leading-tight">{profileName}</span>
@@ -273,7 +274,17 @@ export function Header() {
               <button 
                 onClick={() => {
                   setProfileOpen(false);
-                  navigate('/login');
+                  const saved = localStorage.getItem('bhu_settings');
+                  if (saved) {
+                    const p = JSON.parse(saved);
+                    delete p.profileName;
+                    delete p.profileEmail;
+                    delete p.profileRole;
+                    delete p.profileAvatar;
+                    localStorage.setItem('bhu_settings', JSON.stringify(p));
+                  }
+                  window.dispatchEvent(new Event('bhu_settings_changed'));
+                  navigate('/');
                 }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-bold text-red-600 rounded-lg hover:bg-red-50 transition-colors"
               >

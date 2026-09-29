@@ -2,8 +2,10 @@ import { useState, useRef, useEffect } from 'react';
 import { Bot, Search, ShieldCheck, CornerDownLeft, Sparkles, BookOpen } from 'lucide-react';
 import clsx from 'clsx';
 import { fetchApi } from '../services/api';
+import defaultAvatar from '../assets/default-avatar.png';
 
 export function AiEvidence() {
+  const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [messages, setMessages] = useState<any[]>([
     {
@@ -22,6 +24,19 @@ export function AiEvidence() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  useEffect(() => {
+    const fetchAvatar = () => {
+      const saved = localStorage.getItem('bhu_settings');
+      if (saved) {
+        const p = JSON.parse(saved);
+        setProfileAvatar(p.profileAvatar || null);
+      }
+    };
+    fetchAvatar();
+    window.addEventListener('bhu_settings_changed', fetchAvatar);
+    return () => window.removeEventListener('bhu_settings_changed', fetchAvatar);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,7 +120,7 @@ export function AiEvidence() {
 
                   {m.role === 'user' && (
                     <div className="w-8 h-8 rounded-xl bg-slate-200 overflow-hidden shrink-0 shadow-sm mt-1 border border-slate-100">
-                      <img src="https://i.pravatar.cc/150?u=a042581f4e29026704d" alt="User" className="w-full h-full object-cover" />
+                      <img src={profileAvatar || defaultAvatar} alt="User" className="w-full h-full object-cover" />
                     </div>
                   )}
                 </div>

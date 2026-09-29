@@ -22,7 +22,17 @@ export function Login() {
         <h2 className="text-2xl font-black text-[#0F172A] mb-2 text-center">Welcome back</h2>
         <p className="text-sm text-slate-500 mb-8 text-center font-medium">Enter your credentials to access your dashboard</p>
 
-        <form onSubmit={(e) => { e.preventDefault(); navigate('/dashboard'); }} className="space-y-5">
+        <form onSubmit={(e) => { 
+          e.preventDefault(); 
+          const currentSettings = JSON.parse(localStorage.getItem('bhu_settings') || '{}');
+          if (!currentSettings.profileName) {
+            currentSettings.profileName = 'Aditya';
+            currentSettings.profileRole = 'Researcher';
+            localStorage.setItem('bhu_settings', JSON.stringify(currentSettings));
+            window.dispatchEvent(new Event('bhu_settings_changed'));
+          }
+          navigate('/dashboard'); 
+        }} className="space-y-5">
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Email Address</label>
             <input 

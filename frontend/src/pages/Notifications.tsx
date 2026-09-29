@@ -9,15 +9,19 @@ interface Notification {
   title: string;
   description: string;
   time: string;
+  timestamp?: string;
   read: boolean;
 }
 
+import { formatTimeAgo } from '../utils/time';
+
+const now = Date.now();
 const INITIAL_DATA: Notification[] = [
-  { id: '1', category: 'POLICY', title: 'Policy document updated', description: 'The National Land Use Policy 2026 draft has been revised.', time: '10 mins ago', read: false },
-  { id: '2', category: 'RESEARCH', title: 'New research paper added', description: 'A new paper on climate resilience in coastal areas was published.', time: '2 hours ago', read: false },
-  { id: '3', category: 'DATASET', title: 'New dataset available', description: '2026 Q1 Soil Health metrics for Southern states uploaded.', time: '5 hours ago', read: false },
-  { id: '4', category: 'GIS', title: 'Map layer update', description: 'High-res satellite imagery for Karnataka region updated.', time: '1 day ago', read: true },
-  { id: '5', category: 'INNOVATION', title: 'Hackathon registration open', description: 'Register for the SIH 2026 Land Governance challenge.', time: '2 days ago', read: true },
+  { id: '1', category: 'POLICY', title: 'Policy document updated', description: 'The National Land Use Policy 2026 draft has been revised.', time: '10 mins ago', timestamp: new Date(now - 10 * 60 * 1000).toISOString(), read: false },
+  { id: '2', category: 'RESEARCH', title: 'New research paper added', description: 'A new paper on climate resilience in coastal areas was published.', time: '2 hours ago', timestamp: new Date(now - 2 * 60 * 60 * 1000).toISOString(), read: false },
+  { id: '3', category: 'DATASET', title: 'New dataset available', description: '2026 Q1 Soil Health metrics for Southern states uploaded.', time: '5 hours ago', timestamp: new Date(now - 5 * 60 * 60 * 1000).toISOString(), read: false },
+  { id: '4', category: 'GIS', title: 'Map layer update', description: 'High-res satellite imagery for Karnataka region updated.', time: '1 day ago', timestamp: new Date(now - 24 * 60 * 60 * 1000).toISOString(), read: true },
+  { id: '5', category: 'INNOVATION', title: 'Hackathon registration open', description: 'Register for the SIH 2026 Land Governance challenge.', time: '2 days ago', timestamp: new Date(now - 48 * 60 * 60 * 1000).toISOString(), read: true },
 ];
 
 const CATEGORY_ICONS: Record<Exclude<Category, 'ALL'>, any> = {
@@ -52,7 +56,13 @@ export function Notifications() {
   useEffect(() => {
     const saved = localStorage.getItem('bhu_notifications');
     if (saved) {
-      setNotifications(JSON.parse(saved));
+      // Migrate old data if necessary
+      const parsed = JSON.parse(saved);
+      const migrated = parsed.map((n: any) => ({
+        ...n,
+        timestamp: n.timestamp || new Date().toISOString()
+      }));
+      setNotifications(migrated);
     } else {
       setNotifications(INITIAL_DATA);
     }
@@ -180,7 +190,7 @@ export function Notifications() {
                         {notif.title}
                       </h3>
                       <span className="text-xs font-medium text-slate-400 whitespace-nowrap">
-                        {notif.time}
+                        {notif.timestamp ? formatTimeAgo(notif.timestamp) : notif.time}
                       </span>
                     </div>
                     <p className={`text-sm ${!notif.read ? 'text-slate-700 font-medium' : 'text-slate-500'}`}>
