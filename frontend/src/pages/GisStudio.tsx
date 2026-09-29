@@ -1,16 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Layers, Map as MapIcon, Maximize2, MousePointer2 } from 'lucide-react';
-import { MapContainer, TileLayer, GeoJSON, ZoomControl } from 'react-leaflet';
+import { Layers } from 'lucide-react';
+import { MapContainer, TileLayer, GeoJSON, CircleMarker, Polyline, Popup, Tooltip, ZoomControl } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { fetchApi } from '../services/api';
-
-// Helper component to recenter map when bounds change (omitted for brevity, basic setup below)
+import { GIS_LAYERS, MOCK_HOTSPOTS, MOCK_INFRASTRUCTURE_LINES, MOCK_INFRASTRUCTURE_POINTS, hashString } from '../data/gis';
+import indiaGeoJson from '../assets/india_states.json';
+import clsx from 'clsx';
 
 export function GisStudio() {
-  const [layers, setLayers] = useState<any[]>([]);
-  const [activeLayer, setActiveLayer] = useState<string | null>(null);
-  const [geoData, setGeoData] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+  const [activeLayers, setActiveLayers] = useState<Record<string, boolean>>({
+    administrativeBoundaries: true
+  });
   const [mapView, setMapView] = useState<'map' | 'satellite' | 'terrain'>('satellite');
 
   useEffect(() => {
@@ -26,133 +25,221 @@ export function GisStudio() {
     return () => window.removeEventListener('bhu_settings_changed', applySettings);
   }, []);
 
-  useEffect(() => {
-    // Fetch available layers
-    fetchApi<{layers: any[]}>('/gis/layers')
-      .then(res => setLayers(res.layers || []))
-      .catch(err => console.error(err));
-  }, []);
-
-  const handleLayerToggle = async (layerId: string) => {
-    if (activeLayer === layerId) {
-      setActiveLayer(null);
-      setGeoData(null);
-      return;
-    }
-    
-    setActiveLayer(layerId);
-    setLoading(true);
-    try {
-      const res = await fetchApi<{features: any}>(`/gis/layers/${layerId}/features`);
-      setGeoData(res.features);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+  const handleLayerToggle = (layerId: string) => {
+    setActiveLayers(prev => ({
+      ...prev,
+      [layerId]: !prev[layerId]
+    }));
   };
 
-  return (
-    <div className="max-w-7xl mx-auto h-[calc(100vh-8rem)] flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="mb-6">
-        <h1 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Geospatial Intelligence Studio</h1>
-        <p className="text-slate-500 max-w-3xl leading-relaxed">
-          Vector rendering of cadastral bounds, LULC matrix analysis, and multi-spectral indices.
-        </p>
-      </div>
+  const activeLayerObjs = GIS_LAYERS.filter(l => activeLayers[l.id]);
 
-      <div className="flex-1 flex gap-6">
+  return (
+    <div className="w-full h-[calc(100vh-4rem)] flex flex-col animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-hidden bg-slate-50">
+      <div className="flex-1 flex w-full relative">
         
         {/* Sidebar Controls */}
-        <div className="w-72 flex flex-col gap-4">
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2">
-              <Layers className="w-4 h-4 text-gov-blue" /> Available Layers
+        <div className="w-80 flex flex-col bg-white border-r border-slate-200 z-10 shadow-[4px_0_24px_rgba(0,0,0,0.02)] relative">
+          <div className="p-6 border-b border-slate-100">
+            <h1 className="text-xl font-black text-slate-900 tracking-tight mb-1">Geospatial Studio</h1>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Live Analysis Layers</p>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-2 mb-1 flex items-center gap-2">
+              <Layers className="w-3.5 h-3.5" /> Available Overlays
             </h3>
             
-            <div className="space-y-2">
-              {layers.map(layer => (
-                <label key={layer.id} className="flex items-start gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors border border-transparent hover:border-slate-100">
-                  <div className="mt-0.5">
-                    <input 
-                      type="checkbox" 
-                      className="w-4 h-4 text-gov-blue rounded border-slate-300 focus:ring-gov-blue"
-                      checked={activeLayer === layer.id}
-                      onChange={() => handleLayerToggle(layer.id)}
-                    />
-                  </div>
-                  <div>
-                    <div className="text-sm font-bold text-slate-800">{layer.name}</div>
-                    <div className="text-[10px] text-slate-500 uppercase tracking-wide">{layer.type}</div>
-                  </div>
-                </label>
-              ))}
-              
-              {layers.length === 0 && (
-                <div className="text-xs text-slate-400 text-center py-4">No layers available</div>
-              )}
-            </div>
+            {GIS_LAYERS.map(layer => {
+              const isActive = activeLayers[layer.id];
+              return (
+                <div key={layer.id} className={clsx("p-3.5 rounded-xl border transition-all duration-200", isActive ? "border-bhu-primary/30 bg-bhu-primary/5 shadow-sm" : "border-slate-100 bg-white hover:border-slate-200 hover:shadow-sm")}>
+                  <label className="flex items-start justify-between gap-3 cursor-pointer">
+                    <div className="flex-1">
+                      <div className="text-[13px] font-bold text-slate-900 mb-0.5">{layer.name}</div>
+                      <div className="text-[11px] font-medium text-slate-500 leading-relaxed mb-3">{layer.description}</div>
+                      
+                      <div className="flex flex-wrap gap-1.5 mt-1">
+                        {layer.categories.map((cat, i) => (
+                          <span key={i} className={clsx("inline-flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md transition-colors", isActive ? "text-slate-700 bg-white border border-slate-200" : "text-slate-400 bg-slate-50 border border-slate-100")}>
+                            {isActive && <span className="w-1.5 h-1.5 rounded-full shadow-sm" style={{backgroundColor: cat.color}}></span>}
+                            {cat.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="mt-0.5 shrink-0">
+                      <input 
+                        type="checkbox" 
+                        className="w-4 h-4 text-bhu-primary rounded border-slate-300 focus:ring-bhu-primary transition-all cursor-pointer"
+                        checked={!!isActive}
+                        onChange={() => handleLayerToggle(layer.id)}
+                      />
+                    </div>
+                  </label>
+                </div>
+              );
+            })}
           </div>
         </div>
 
         {/* Map Container */}
-        <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative">
-          {loading && (
-            <div className="absolute inset-0 z-[1000] bg-white/50 backdrop-blur-sm flex items-center justify-center">
-              <div className="bg-white px-4 py-2 rounded-lg shadow-lg border border-slate-200 text-sm font-bold text-gov-blue animate-pulse">
-                Rendering Vector Data...
-              </div>
-            </div>
-          )}
+        <div className="flex-1 relative bg-[#0B1015]">
           
           <MapContainer 
-            center={[20.5937, 78.9629]} // India center
+            center={[22.5937, 78.9629]} 
             zoom={5} 
             zoomControl={false}
-            className="w-full h-full z-0"
+            className="w-full h-full z-0 [&_.leaflet-control-attribution]:hidden"
+            style={{ background: '#0B1015' }}
           >
             <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              key={mapView}
               url={
                 mapView === 'satellite' ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" :
-                mapView === 'terrain' ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}" :
-                "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                mapView === 'terrain' ? "https://server.arcgisonline.com/ArcGIS/rest/services/World_Physical_Map/MapServer/tile/{z}/{y}/{x}" :
+                "https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png"
               }
             />
             <ZoomControl position="bottomright" />
             
-            {geoData && (
+            {/* 1. Thematic States (Land Use OR Climate Risk) */}
+            {(activeLayers.landUse || activeLayers.climateRisk) && (
               <GeoJSON 
-                key={activeLayer} // Re-render when layer changes
-                data={geoData} 
-                style={{
-                  color: '#1e3a8a',
-                  weight: 2,
-                  opacity: 0.8,
-                  fillColor: '#1e40af',
-                  fillOpacity: 0.2
+                key={`thematic-${activeLayers.landUse}-${activeLayers.climateRisk}`}
+                data={indiaGeoJson as any} 
+                style={(feature: any) => {
+                  const stateName = feature?.properties.NAME_1 || feature?.properties.name || 'Unknown';
+                  const hash = hashString(stateName);
+                  let color = 'transparent';
+                  
+                  if (activeLayers.landUse) {
+                    const l = GIS_LAYERS.find(x => x.id === 'landUse')!.categories;
+                    color = l[hash % l.length].color;
+                  } else if (activeLayers.climateRisk) {
+                    const l = GIS_LAYERS.find(x => x.id === 'climateRisk')!.categories;
+                    color = l[hash % l.length].color;
+                  }
+
+                  return {
+                    color: 'transparent',
+                    weight: 0,
+                    fillColor: color,
+                    fillOpacity: 0.6
+                  };
+                }}
+                onEachFeature={(feature, layer) => {
+                  const stateName = feature?.properties.NAME_1 || feature?.properties.name || 'Unknown';
+                  const hash = hashString(stateName);
+                  
+                  let tooltip = `<b>${stateName}</b>`;
+                  if (activeLayers.landUse) {
+                     const l = GIS_LAYERS.find(x => x.id === 'landUse')!.categories;
+                     tooltip += `<br/>Dominant Land Use: ${l[hash % l.length].name}`;
+                  }
+                  if (activeLayers.climateRisk) {
+                     const l = GIS_LAYERS.find(x => x.id === 'climateRisk')!.categories;
+                     tooltip += `<br/>Climate Risk: ${l[hash % l.length].name}`;
+                  }
+                  
+                  layer.bindTooltip(tooltip, { direction: 'center', className: 'bg-white/95 backdrop-blur border border-slate-100 shadow-xl rounded-xl p-3 text-xs text-slate-800' });
                 }}
               />
             )}
+
+            {/* 2. Administrative Boundaries */}
+            {activeLayers.administrativeBoundaries && (
+              <GeoJSON 
+                key={`admin-${mapView}`}
+                data={indiaGeoJson as any} 
+                style={() => ({
+                  color: mapView === 'satellite' ? 'rgba(255,255,255,0.45)' : 'rgba(51, 65, 85, 0.85)',
+                  weight: 1.5,
+                  fillColor: 'transparent',
+                  fillOpacity: 0
+                })}
+              />
+            )}
+
+            {/* 3. Land Disputes */}
+            {activeLayers.landDisputes && MOCK_HOTSPOTS.map((h, i) => (
+              <CircleMarker 
+                key={`hotspot-${i}`} 
+                center={[h.lat, h.lng]}
+                radius={Math.max(8, h.cases / 2.5)}
+                pathOptions={{
+                  color: h.intensity === 'High density' ? '#DC2626' : (h.intensity === 'Medium density' ? '#F59E0B' : '#FDE68A'),
+                  fillColor: h.intensity === 'High density' ? '#DC2626' : (h.intensity === 'Medium density' ? '#F59E0B' : '#FDE68A'),
+                  fillOpacity: 0.85,
+                  weight: 2
+                }}
+              >
+                <Popup className="rounded-2xl overflow-hidden [&_.leaflet-popup-content-wrapper]:rounded-2xl [&_.leaflet-popup-content-wrapper]:shadow-2xl [&_.leaflet-popup-content]:m-0 border-none">
+                  <div className="p-5 w-64 bg-white">
+                    <div className="text-[9px] font-black text-red-500 uppercase tracking-widest mb-1">Dispute Hotspot</div>
+                    <div className="text-base font-black text-slate-900 mb-3 leading-tight">{h.name}</div>
+                    <div className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <span className="text-xs font-bold text-slate-500">Active Cases</span>
+                      <span className="text-lg font-black text-slate-900">{h.cases}</span>
+                    </div>
+                  </div>
+                </Popup>
+              </CircleMarker>
+            ))}
+
+            {/* 4. Infrastructure Lines */}
+            {activeLayers.infrastructure && MOCK_INFRASTRUCTURE_LINES.map((l, i) => (
+              <Polyline 
+                key={`line-${i}`}
+                positions={l.coordinates as any}
+                pathOptions={{ 
+                  color: l.type === 'Roads' ? '#FACC15' : '#1E293B',
+                  weight: l.type === 'Roads' ? 4 : 3,
+                  dashArray: l.type === 'Railways' ? '6, 8' : undefined,
+                  opacity: 0.9
+                }}
+              >
+                <Tooltip sticky className="bg-white/95 backdrop-blur border border-slate-100 shadow-xl rounded-xl p-2.5 text-xs font-bold text-slate-800">{l.name} ({l.type})</Tooltip>
+              </Polyline>
+            ))}
+
+            {/* 4. Infrastructure Points */}
+            {activeLayers.infrastructure && MOCK_INFRASTRUCTURE_POINTS.map((p, i) => (
+              <CircleMarker
+                key={`point-${i}`}
+                center={[p.lat, p.lng]}
+                radius={7}
+                pathOptions={{
+                  color: '#FFFFFF',
+                  weight: 2,
+                  fillColor: '#6366F1',
+                  fillOpacity: 1
+                }}
+              >
+                <Tooltip sticky className="bg-white/95 backdrop-blur border border-slate-100 shadow-xl rounded-xl p-2.5 text-xs font-bold text-slate-800">{p.name} ({p.type})</Tooltip>
+              </CircleMarker>
+            ))}
+            
           </MapContainer>
           
-          {/* Map Toolbars */}
-          <div className="absolute top-4 left-4 z-[400] flex flex-col gap-2">
-            <button className="w-10 h-10 bg-white rounded-lg shadow border border-slate-200 flex items-center justify-center text-slate-600 hover:text-gov-blue transition-colors hover:bg-slate-50">
-              <MousePointer2 className="w-5 h-5" />
-            </button>
-            <button className="w-10 h-10 bg-white rounded-lg shadow border border-slate-200 flex items-center justify-center text-slate-600 hover:text-gov-blue transition-colors hover:bg-slate-50">
-              <MapIcon className="w-5 h-5" />
-            </button>
+          {/* Map Legends Overlay */}
+          <div className="absolute bottom-6 left-6 z-[400] flex flex-row flex-wrap gap-4 items-end pointer-events-none max-w-2xl">
+            {activeLayerObjs.map(layer => (
+              <div key={`legend-${layer.id}`} className="bg-white/95 backdrop-blur rounded-2xl shadow-xl border border-slate-200/60 p-4 w-48 pointer-events-auto animate-in fade-in slide-in-from-bottom-4 duration-300">
+                <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 border-b border-slate-100 pb-2">{layer.name}</div>
+                <div className="flex flex-col gap-2.5">
+                  {layer.categories.map((l, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <div className="w-3.5 h-3.5 rounded-[4px] shrink-0 shadow-inner" style={{ backgroundColor: l.color }}></div>
+                      <span className="text-xs font-bold text-slate-700 truncate">{l.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
           
-          <div className="absolute top-4 right-4 z-[400]">
-            <button className="w-10 h-10 bg-white rounded-lg shadow border border-slate-200 flex items-center justify-center text-slate-600 hover:text-gov-blue transition-colors hover:bg-slate-50">
-              <Maximize2 className="w-5 h-5" />
-            </button>
-          </div>
         </div>
-
       </div>
     </div>
   );
