@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AppLayout } from './components/layout/AppLayout'
+import { ProtectedRoute } from './components/ProtectedRoute'
 import { Landing } from './pages/Landing'
 import { Login } from './pages/Login'
 import { Signup } from './pages/Signup'
@@ -56,42 +57,44 @@ function App() {
       <Route path="/landing" element={<Navigate to="/" replace />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
-      <Route element={<AppLayout />}>
-        <Route path="/dashboard" element={<Overview />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/notifications" element={<Notifications />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route path="/help" element={<HelpSupport />} />
-        <Route path="/research/repository" element={<Research />} />
-        <Route path="/research/saved" element={<SavedResearch />} />
-        <Route path="/research/publications" element={<Publications />} />
-        <Route path="/research/*" element={<Navigate to="/research/repository" replace />} />
-        <Route path="/ai" element={<AiEvidence />} />
-        
-        {/* Policy Group */}
-        <Route path="/policy/documents" element={<PolicyDocuments />} />
-        <Route path="/policy/simulation" element={<PolicyLab />} />
-        <Route path="/policy" element={<Navigate to="/policy/simulation" replace />} />
+      <Route element={<ProtectedRoute />}>
+        <Route element={<AppLayout />}>
+          <Route path="/dashboard" element={<Overview />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/notifications" element={<Notifications />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/help" element={<HelpSupport />} />
+          <Route path="/research/repository" element={<Research />} />
+          <Route path="/research/saved" element={<SavedResearch />} />
+          <Route path="/research/publications" element={<Publications />} />
+          <Route path="/research/*" element={<Navigate to="/research/repository" replace />} />
+          <Route path="/ai" element={<AiEvidence />} />
+          
+          {/* Policy Group */}
+          <Route path="/policy/documents" element={<PolicyDocuments />} />
+          <Route path="/policy/simulation" element={<PolicyLab />} />
+          <Route path="/policy" element={<Navigate to="/policy/simulation" replace />} />
 
-        {/* GIS Group */}
-        <Route path="/gis/maps" element={<GisStudio />} />
-        <Route path="/gis/analysis" element={<LandUseAnalysis />} />
-        <Route path="/gis/climate" element={<ClimateRisk />} />
-        <Route path="/gis" element={<Navigate to="/gis/maps" replace />} />
+          {/* GIS Group */}
+          <Route path="/gis/maps" element={<GisStudio />} />
+          <Route path="/gis/analysis" element={<LandUseAnalysis />} />
+          <Route path="/gis/climate" element={<ClimateRisk />} />
+          <Route path="/gis" element={<Navigate to="/gis/maps" replace />} />
 
-        {/* Data & Analytics Group */}
-        <Route path="/data/datasets" element={<DataCatalog />} />
-        <Route path="/data/insights" element={<Reports />} />
-        <Route path="/data" element={<Navigate to="/data/datasets" replace />} />
+          {/* Data & Analytics Group */}
+          <Route path="/data/datasets" element={<DataCatalog />} />
+          <Route path="/data/insights" element={<Reports />} />
+          <Route path="/data" element={<Navigate to="/data/datasets" replace />} />
 
-        <Route path="/analytics" element={<Analytics />} />
-        <Route path="/workspaces" element={<Workspaces />} />
-        <Route path="/innovation" element={<InnovationPortal />} />
-        <Route path="/governance/provenance" element={<Provenance />} />
-        <Route path="/governance/audit" element={<AuditLogs />} />
-        <Route path="/reports" element={<Navigate to="/data/insights" replace />} />
-        <Route path="/admin" element={<Admin />} />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/analytics" element={<Analytics />} />
+          <Route path="/workspaces" element={<Workspaces />} />
+          <Route path="/innovation" element={<InnovationPortal />} />
+          <Route path="/governance/provenance" element={<Provenance />} />
+          <Route path="/governance/audit" element={<AuditLogs />} />
+          <Route path="/reports" element={<Navigate to="/data/insights" replace />} />
+          <Route path="/admin" element={<Admin />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        </Route>
       </Route>
     </Routes>
   )

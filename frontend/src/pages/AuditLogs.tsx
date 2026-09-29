@@ -1,20 +1,26 @@
 import { useState, useEffect } from 'react';
-import { Activity } from 'lucide-react';
+import { Activity, AlertTriangle } from 'lucide-react';
+import { fetchApi } from '../services/api';
 
 export function AuditLogs() {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/admin/audit-logs', {
-      headers: { 'Authorization': 'Bearer test' }
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data.status === 'SUCCESS') setLogs(data.logs);
-        setLoading(false);
+    fetchApi<any>('/admin/audit-logs')
+      .then(res => {
+        if (res.status === 'SUCCESS') setLogs(res.logs || []);
       })
-      .catch(console.error);
+      .catch(err => {
+        console.error(err);
+        if (err.message?.includes('403') || err.message?.includes('401')) {
+          setError("Access Denied: You do not have permission to view audit logs.");
+        } else {
+          setError("Failed to load audit logs.");
+        }
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   return (
@@ -40,7 +46,17 @@ export function AuditLogs() {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
+              {error ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12">
+                    <div className="flex flex-col items-center justify-center text-red-600">
+                      <AlertTriangle className="w-8 h-8 mb-2" />
+                      <span className="font-bold">Access Denied</span>
+                      <span className="text-sm">{error}</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : loading ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-slate-500">Loading audit trail...</td>
                 </tr>

@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { Leaf } from 'lucide-react';
+import { Leaf, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { fetchApi } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const ROLES = [
   "Researcher",
@@ -13,14 +15,17 @@ const ROLES = [
 
 export function Signup() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!role) {
       setError("Please select your role.");
@@ -31,15 +36,32 @@ export function Signup() {
       return;
     }
     
-    // Save to shared frontend profile
-    const currentSettings = JSON.parse(localStorage.getItem('bhu_settings') || '{}');
-    currentSettings.profileName = name;
-    currentSettings.profileRole = role;
-    currentSettings.profileEmail = email;
-    localStorage.setItem('bhu_settings', JSON.stringify(currentSettings));
-    window.dispatchEvent(new Event('bhu_settings_changed'));
-    
-    navigate('/dashboard');
+    setError('');
+    setLoading(true);
+
+    try {
+      const res = await fetchApi<any>('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          username,
+          email,
+          password,
+          full_name: name,
+          role
+        })
+      });
+
+      if (res.status === 'SUCCESS' && res.access_token) {
+        login(res.access_token, res.user);
+        navigate('/dashboard');
+      } else {
+        setError(res.message || "Registration failed.");
+      }
+    } catch (err: any) {
+      setError(err.message || "An error occurred during registration.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -70,6 +92,18 @@ export function Signup() {
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="Dr. Ashok Kumar"
+              className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:bg-white focus:border-[#008B72] focus:ring-4 focus:ring-[#008B72]/10 outline-none transition-all"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Username</label>
+            <input 
+              type="text" 
+              required
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+              placeholder="ashok.kumar"
               className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:bg-white focus:border-[#008B72] focus:ring-4 focus:ring-[#008B72]/10 outline-none transition-all"
             />
           </div>
@@ -124,9 +158,10 @@ export function Signup() {
 
           <button 
             type="submit" 
-            className="w-full bg-[#008B72] text-white font-bold py-3.5 rounded-xl shadow-[0_8px_20px_-6px_rgba(0,139,114,0.4)] hover:shadow-[0_12px_24px_-6px_rgba(0,139,114,0.5)] hover:-translate-y-0.5 transition-all mt-4"
+            disabled={loading}
+            className="w-full bg-[#008B72] text-white font-bold py-3.5 rounded-xl shadow-[0_8px_20px_-6px_rgba(0,139,114,0.4)] hover:shadow-[0_12px_24px_-6px_rgba(0,139,114,0.5)] hover:-translate-y-0.5 transition-all mt-4 disabled:opacity-70 disabled:hover:translate-y-0 disabled:hover:shadow-[0_8px_20px_-6px_rgba(0,139,114,0.4)] flex items-center justify-center gap-2"
           >
-            Create Account
+            {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> Creating Account...</> : "Create Account"}
           </button>
         </form>
 

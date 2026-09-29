@@ -1,19 +1,21 @@
 import { useState, useEffect } from 'react';
-import { Lightbulb, Send, Bot, Award } from 'lucide-react';
+import { Lightbulb, Send, Bot, Award, Loader2 } from 'lucide-react';
+import { fetchApi } from '../services/api';
 
 export function InnovationPortal() {
   const [query, setQuery] = useState('');
   const [response, setResponse] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [initiatives, setInitiatives] = useState<any[]>([]);
+  const [loadingInitiatives, setLoadingInitiatives] = useState(true);
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/innovation/initiatives')
-      .then(res => res.json())
-      .then(data => {
-        if (data.status === 'SUCCESS') setInitiatives(data.initiatives);
+    fetchApi<any>('/innovation/initiatives')
+      .then(res => {
+        if (res.status === 'SUCCESS') setInitiatives(res.initiatives || []);
       })
-      .catch(console.error);
+      .catch(console.error)
+      .finally(() => setLoadingInitiatives(false));
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -21,12 +23,10 @@ export function InnovationPortal() {
     if (!query) return;
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:8000/api/ai/orchestrate', {
+      const data = await fetchApi<any>('/ai/orchestrate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query })
       });
-      const data = await res.json();
       setResponse(data);
     } catch (err) {
       console.error(err);
@@ -36,8 +36,29 @@ export function InnovationPortal() {
   };
 
   const submitProposal = async (id: number) => {
-    // In a real app, this would open a modal form.
-    alert(`Submitting proposal for Initiative #${id}`);
+    const title = window.prompt("Enter submission title:");
+    if (!title) return;
+    const proposal_text = window.prompt("Enter proposal text:");
+    if (!proposal_text) return;
+
+    try {
+      const res = await fetchApi<any>(`/innovation/initiatives/${id}/submissions`, {
+        method: 'POST',
+        body: JSON.stringify({ title, proposal_text })
+      });
+      if (res.status === 'SUCCESS') {
+        alert("Proposal submitted successfully!");
+      } else {
+        alert("Failed to submit proposal.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      if (err.message?.includes('403') || err.message?.includes('401')) {
+         alert("Permission denied or not authenticated.");
+      } else {
+         alert("Failed to submit proposal.");
+      }
+    }
   };
 
   return (
@@ -102,8 +123,10 @@ export function InnovationPortal() {
         <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-2">
           <Award className="w-5 h-5 text-gov-blue" /> Open Initiatives
         </h2>
-        {initiatives.length === 0 ? (
-          <div className="text-sm text-slate-500 italic">No open initiatives currently available.</div>
+        {loadingInitiatives ? (
+          <div className="flex justify-center p-4"><Loader2 className="w-6 h-6 animate-spin text-slate-400" /></div>
+        ) : initiatives.length === 0 ? (
+          <div className="text-sm text-slate-500 italic p-4 bg-white rounded-lg border border-slate-200">No open initiatives currently available.</div>
         ) : (
           initiatives.map(init => (
             <div key={init.id} className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm flex flex-col">
@@ -111,8 +134,8 @@ export function InnovationPortal() {
                 <span className="bg-gov-blue/10 text-gov-blue text-xs font-bold px-2 py-0.5 rounded uppercase tracking-wider">
                   {init.type}
                 </span>
-                <span className={`text-xs font-bold px-2 py-0.5 rounded ${init.status === 'OPEN' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>
-                  {init.status}
+                <span className={`text-xs font-bold px-2 py-0.5 rounded ${(init.status || 'OPEN') === 'OPEN' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'}`}>
+                  {init.status || 'OPEN'}
                 </span>
               </div>
               <h3 className="font-semibold text-slate-800 mb-1">{init.title}</h3>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ShieldCheck, CheckCircle, AlertTriangle } from 'lucide-react';
+import { fetchApi } from '../services/api';
 
 export function Provenance() {
   const [ledger, setLedger] = useState<any[]>([]);
@@ -8,8 +9,8 @@ export function Provenance() {
 
   useEffect(() => {
     Promise.all([
-      fetch('http://localhost:8000/api/provenance/ledger').then(res => res.json()),
-      fetch('http://localhost:8000/api/provenance/verify').then(res => res.json())
+      fetchApi<any>('/provenance/ledger'),
+      fetchApi<any>('/provenance/verify')
     ]).then(([ledgerData, verifyData]) => {
       if (ledgerData.status === 'SUCCESS') setLedger(ledgerData.ledger);
       if (verifyData.status === 'SUCCESS') setVerification(verifyData);

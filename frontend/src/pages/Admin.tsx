@@ -1,22 +1,26 @@
 import { useState, useEffect } from 'react';
-import { Settings, Users, Database, FileText, Map, ShieldCheck } from 'lucide-react';
+import { Settings, Users, Database, FileText, Map, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { fetchApi } from '../services/api';
 
 export function Admin() {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // We pass admin token or rely on CORS credentials
-    // For demo, we just fetch assuming authentication is handled or mock token
-    fetch('http://localhost:8000/api/admin/stats', {
-      headers: { 'Authorization': 'Bearer test' } // Simplified for demo
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data.status === 'SUCCESS') setStats(data.statistics);
-        setLoading(false);
+    fetchApi<any>('/admin/stats')
+      .then(res => {
+        if (res.status === 'SUCCESS') setStats(res.statistics);
       })
-      .catch(console.error);
+      .catch(err => {
+        console.error(err);
+        if (err.message?.includes('403') || err.message?.includes('401')) {
+          setError("Access Denied: You do not have permission to view administrative statistics.");
+        } else {
+          setError("Failed to load statistics.");
+        }
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const cards = stats ? [
@@ -37,7 +41,15 @@ export function Admin() {
         <p className="text-slate-500 text-sm mt-1">System overview and governance metrics</p>
       </div>
 
-      {loading ? (
+      {error ? (
+        <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-xl flex items-center gap-4">
+          <AlertTriangle className="w-8 h-8" />
+          <div>
+            <h3 className="font-bold text-lg">Permission Denied</h3>
+            <p>{error}</p>
+          </div>
+        </div>
+      ) : loading ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[1,2,3,4,5].map(i => <div key={i} className="h-32 bg-slate-100 animate-pulse rounded-lg"></div>)}
         </div>

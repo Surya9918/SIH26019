@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { User, LayoutDashboard, Map as MapIcon, Search, Bell, Accessibility, Check } from 'lucide-react';
 import defaultAvatar from '../assets/default-avatar.png';
+import { useAuth } from '../context/AuthContext';
 
 type SettingsTab = 'PROFILE' | 'DASHBOARD' | 'MAP' | 'SEARCH' | 'NOTIFICATIONS' | 'ACCESSIBILITY';
 
 export function Settings() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<SettingsTab>('PROFILE');
   const [savedMessage, setSavedMessage] = useState(false);
 
@@ -42,12 +44,14 @@ export function Settings() {
 
   // Load from local storage
   useEffect(() => {
+    if (user) {
+      setProfileName(user.full_name || user.username);
+      setProfileRole(user.role || 'User');
+      setProfileEmail(user.email);
+    }
     const saved = localStorage.getItem('bhu_settings');
     if (saved) {
       const p = JSON.parse(saved);
-      setProfileName(p.profileName ?? 'Suriya N.');
-      setProfileRole(p.profileRole ?? 'Researcher');
-      setProfileEmail(p.profileEmail ?? 'suriya.n@research.gov.in');
       if (p.profileAvatar) setProfileAvatar(p.profileAvatar);
       setDashKpis(p.dashKpis ?? true);
       setDashActivity(p.dashActivity ?? true);
@@ -81,7 +85,7 @@ export function Settings() {
     }
 
     const prefs = {
-      profileName, profileRole, profileEmail, profileAvatar, dashKpis, dashActivity, dashQuickAccess, dashInnovation,
+      profileAvatar, dashKpis, dashActivity, dashQuickAccess, dashInnovation,
       mapView, mapLayer, mapLabels, mapBoundaries,
       searchScope, searchHistory, notifResearch, notifPolicy, notifDataset, notifGis, notifInnovation,
       accMotion, accContrast, accLargerText
@@ -96,9 +100,6 @@ export function Settings() {
     // Preserve profile information
     const current = JSON.parse(localStorage.getItem('bhu_settings') || '{}');
     const preservedProfile = {
-      profileName: current.profileName ?? 'Suriya N.',
-      profileRole: current.profileRole ?? 'Researcher',
-      profileEmail: current.profileEmail ?? 'suriya.n@research.gov.in',
       profileAvatar: current.profileAvatar || null,
     };
     
@@ -293,33 +294,20 @@ export function Settings() {
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-slate-700">Full Name</label>
-                  <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-bhu-primary/20" />
+                  <input type="text" value={profileName} readOnly disabled className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 text-sm text-slate-500 cursor-not-allowed" />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-slate-700">Role</label>
-                  <select 
-                    value={profileRole} 
-                    onChange={e => setProfileRole(e.target.value)} 
-                    className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-bhu-primary/20 cursor-pointer"
-                  >
-                    <option value="Researcher">Researcher</option>
-                    <option value="Policy Analyst">Policy Analyst</option>
-                    <option value="GIS Analyst">GIS Analyst</option>
-                    <option value="Data Analyst">Data Analyst</option>
-                    <option value="Government Administrator">Government Administrator</option>
-                    <option value="Academic / Student">Academic / Student</option>
-                  </select>
+                  <input type="text" value={profileRole} readOnly disabled className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 text-sm text-slate-500 cursor-not-allowed" />
                 </div>
                 <div className="space-y-2 col-span-2">
                   <label className="text-sm font-bold text-slate-700">Email</label>
                   <input 
                     type="email" 
                     value={profileEmail} 
-                    onChange={e => {
-                      setProfileEmail(e.target.value);
-                      if (emailError) setEmailError(null);
-                    }} 
-                    className={`w-full bg-white border ${emailError ? 'border-bhu-danger focus:ring-bhu-danger/20' : 'border-slate-200 focus:ring-bhu-primary/20'} rounded-lg px-4 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2`} 
+                    readOnly 
+                    disabled
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 text-sm text-slate-500 cursor-not-allowed" 
                   />
                   {emailError && <p className="text-xs text-bhu-danger font-bold mt-1">{emailError}</p>}
                 </div>

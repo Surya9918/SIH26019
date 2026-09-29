@@ -63,7 +63,7 @@ export function Publications() {
                     <span>•</span>
                     <span>{doc.publication_date}</span>
                   </div>
-                  <p className="text-sm text-slate-600 line-clamp-2">{doc.content}</p>
+                  <p className="text-sm text-slate-600 line-clamp-2">{doc.description}</p>
                 </div>
               </div>
             ))

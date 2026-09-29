@@ -40,7 +40,7 @@ function MapBoundsFit({ data }: { data: any }) {
     if (data) {
       const geoJsonLayer = L.geoJSON(data);
       const fit = () => {
-        map.fitBounds(geoJsonLayer.getBounds(), { 
+        map.fitBounds(geoJsonLayer.getBounds(), {
           paddingTopLeft: [10, 10],
           paddingBottomRight: [10, 30] // slightly more padding on bottom to lift India up
         });
@@ -83,7 +83,7 @@ export function India2DMap() {
 
   return (
     <div className="w-full h-full relative overflow-hidden bg-transparent flex items-center justify-center font-sans">
-      
+
       {/* Background GIS Grid & Styling */}
       <div className="absolute inset-0 pointer-events-none" style={{
         backgroundImage: `
@@ -92,14 +92,14 @@ export function India2DMap() {
         `,
         backgroundSize: '40px 40px'
       }}></div>
-      
+
       {/* Subtle radial glow behind India */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-teal-500/10 rounded-full blur-[100px] pointer-events-none z-0"></div>
 
       {/* React Leaflet Map */}
       <div className="absolute inset-0 z-10 w-full h-full" onMouseLeave={() => setHoveredState(null)}>
-        <MapContainer 
-          center={[22.5, 80]} 
+        <MapContainer
+          center={[22.5, 80]}
           zoom={4.5}
           zoomSnap={0.1}
           zoomDelta={0.1}
@@ -114,65 +114,65 @@ export function India2DMap() {
           <TileLayer
             url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
           />
-          
+
           <MapBoundsFit data={indiaGeoJson} />
 
-          <GeoJSON 
+          <GeoJSON
             key={activeLayer}
-            data={indiaGeoJson as any} 
+            data={indiaGeoJson as any}
             style={(feature: any) => {
-               const stateName = feature?.properties.NAME_1 || feature?.properties.name || 'Unknown';
-               const hash = hashString(stateName);
-               const landUseIndex = hash % PALETTES['Land Use'].length;
-               const climateRiskIndex = hash % PALETTES['Climate Risk'].length;
-               
-               const currentData = activeLayer === 'Land Use' ? PALETTES['Land Use'][landUseIndex] : PALETTES['Climate Risk'][climateRiskIndex];
-               
-               return {
-                  color: 'rgba(255,255,255,0.5)',
-                  weight: 1,
-                  fillColor: currentData.color,
-                  fillOpacity: 0.2
-               }
+              const stateName = feature?.properties.NAME_1 || feature?.properties.name || 'Unknown';
+              const hash = hashString(stateName);
+              const landUseIndex = hash % PALETTES['Land Use'].length;
+              const climateRiskIndex = hash % PALETTES['Climate Risk'].length;
+
+              const currentData = activeLayer === 'Land Use' ? PALETTES['Land Use'][landUseIndex] : PALETTES['Climate Risk'][climateRiskIndex];
+
+              return {
+                color: 'rgba(255,255,255,0.5)',
+                weight: 1,
+                fillColor: currentData.color,
+                fillOpacity: 0.2
+              }
             }}
             onEachFeature={(feature, layer) => {
-               layer.on({
-                 mouseover: (e) => {
-                   const tLayer = e.target;
-                   tLayer.setStyle({
-                     weight: 2,
-                     color: '#00FFC4',
-                     fillOpacity: 0.35
-                   });
-                   tLayer.bringToFront();
-                   
-                   const stateName = feature.properties.NAME_1 || feature.properties.name || 'Unknown';
-                   const hash = hashString(stateName);
-                   setHoveredState({
-                      name: stateName,
-                      data: {
-                        'Land Use': PALETTES['Land Use'][hash % PALETTES['Land Use'].length],
-                        'Climate Risk': PALETTES['Climate Risk'][hash % PALETTES['Climate Risk'].length],
-                      }
-                   });
-                 },
-                 mouseout: (e) => {
-                   const tLayer = e.target;
-                   const stateName = feature.properties.NAME_1 || feature.properties.name || 'Unknown';
-                   const hash = hashString(stateName);
-                   const currentData = activeLayer === 'Land Use' ? PALETTES['Land Use'][hash % PALETTES['Land Use'].length] : PALETTES['Climate Risk'][hash % PALETTES['Climate Risk'].length];
-                   
-                   tLayer.setStyle({
-                     weight: 1,
-                     color: 'rgba(255,255,255,0.5)',
-                     fillColor: currentData.color,
-                     fillOpacity: 0.2
-                   });
-                 },
-                 mousemove: (e: any) => {
-                   setMousePos({ x: e.originalEvent.clientX, y: e.originalEvent.clientY });
-                 }
-               });
+              layer.on({
+                mouseover: (e) => {
+                  const tLayer = e.target;
+                  tLayer.setStyle({
+                    weight: 2,
+                    color: '#00FFC4',
+                    fillOpacity: 0.35
+                  });
+                  tLayer.bringToFront();
+
+                  const stateName = feature.properties.NAME_1 || feature.properties.name || 'Unknown';
+                  const hash = hashString(stateName);
+                  setHoveredState({
+                    name: stateName,
+                    data: {
+                      'Land Use': PALETTES['Land Use'][hash % PALETTES['Land Use'].length],
+                      'Climate Risk': PALETTES['Climate Risk'][hash % PALETTES['Climate Risk'].length],
+                    }
+                  });
+                },
+                mouseout: (e) => {
+                  const tLayer = e.target;
+                  const stateName = feature.properties.NAME_1 || feature.properties.name || 'Unknown';
+                  const hash = hashString(stateName);
+                  const currentData = activeLayer === 'Land Use' ? PALETTES['Land Use'][hash % PALETTES['Land Use'].length] : PALETTES['Climate Risk'][hash % PALETTES['Climate Risk'].length];
+
+                  tLayer.setStyle({
+                    weight: 1,
+                    color: 'rgba(255,255,255,0.5)',
+                    fillColor: currentData.color,
+                    fillOpacity: 0.2
+                  });
+                },
+                mousemove: (e: any) => {
+                  setMousePos({ x: e.originalEvent.clientX, y: e.originalEvent.clientY });
+                }
+              });
             }}
           />
         </MapContainer>
@@ -180,7 +180,7 @@ export function India2DMap() {
 
       {/* MAP CONTROLS (Top Left) */}
       <div ref={layersRef} className="absolute top-6 left-6 z-20">
-        <button 
+        <button
           onClick={() => setLayersOpen(!layersOpen)}
           aria-expanded={layersOpen}
           aria-haspopup="true"
@@ -191,28 +191,25 @@ export function India2DMap() {
           <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${layersOpen ? 'rotate-180' : ''}`} />
         </button>
 
-        <div 
-          className={`absolute top-full left-0 mt-2 w-56 bg-[#0F172A]/95 backdrop-blur-xl border border-white/10 rounded-[12px] p-3 shadow-2xl transition-all duration-200 origin-top ${
-            layersOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
-          }`}
+        <div
+          className={`absolute top-full left-0 mt-2 w-56 bg-[#0F172A]/95 backdrop-blur-xl border border-white/10 rounded-[12px] p-3 shadow-2xl transition-all duration-200 origin-top ${layersOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
+            }`}
         >
           <div className="space-y-1">
             {[
               { id: 'Land Use', label: 'Land Use' },
               { id: 'Climate Risk', label: 'Climate Risk' }
             ].map(layer => (
-              <button 
+              <button
                 key={layer.id}
                 onClick={() => setActiveLayer(layer.id as any)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500/50 ${
-                  activeLayer === layer.id 
-                    ? 'bg-teal-500/10 text-[#14B8A6]' 
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500/50 ${activeLayer === layer.id
+                    ? 'bg-teal-500/10 text-[#14B8A6]'
                     : 'text-[#F8FAFC] hover:bg-white/5'
-                }`}
+                  }`}
               >
-                <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition-colors ${
-                  activeLayer === layer.id ? 'bg-teal-500 border-teal-500' : 'border-[#94A3B8] bg-transparent'
-                }`}>
+                <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition-colors ${activeLayer === layer.id ? 'bg-teal-500 border-teal-500' : 'border-[#94A3B8] bg-transparent'
+                  }`}>
                   {activeLayer === layer.id && (
                     <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -222,15 +219,15 @@ export function India2DMap() {
                 {layer.label}
               </button>
             ))}
-            
+
             <div className="h-px bg-white/10 my-2"></div>
-            
+
             {[
               { label: 'Land Disputes', checked: false },
               { label: 'Infrastructure', checked: false },
               { label: 'Administrative Boundaries', checked: false }
             ].map((layer, i) => (
-              <div 
+              <div
                 key={i}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold text-[#94A3B8] cursor-not-allowed opacity-60"
               >
@@ -277,7 +274,7 @@ export function India2DMap() {
           <div className="text-base font-black text-amber-400 leading-none">High</div>
         </div>
       </div>
-      
+
       <div className="absolute bottom-[22%] right-[4%] lg:right-[6%] z-20 pointer-events-none hidden md:block">
         <div className="bg-[#1E293B]/90 backdrop-blur-md border border-white/10 rounded-xl px-3.5 py-2.5 shadow-lg relative">
           <div className="absolute -left-20 top-1/2 w-20 h-px bg-slate-500/50 -z-10"></div>
@@ -288,7 +285,7 @@ export function India2DMap() {
 
       {/* HOVER TOOLTIP */}
       {hoveredState && (
-        <div 
+        <div
           className="fixed z-[9999] pointer-events-none bg-[#0F172A]/95 backdrop-blur-xl border border-teal-500/30 rounded-xl p-4 shadow-2xl w-56 transform -translate-x-1/2 -translate-y-[120%] transition-opacity duration-200"
           style={{ left: mousePos.x, top: mousePos.y }}
         >
@@ -296,7 +293,7 @@ export function India2DMap() {
           <h3 className="text-sm font-black text-white leading-tight mb-3">
             {hoveredState.name}
           </h3>
-          
+
           <div className="space-y-2 bg-white/5 rounded-lg p-2.5 border border-white/5">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold text-slate-400 uppercase">Land Use</span>

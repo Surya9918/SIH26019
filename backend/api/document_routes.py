@@ -18,6 +18,7 @@ class DocumentCreateRequest(BaseModel):
     keywords: Optional[str] = ""
     document_type: Optional[str] = "Research Paper"
 
+@router.get("")
 @router.get("/")
 def list_documents(
     category: Optional[str] = Query(None),

@@ -2,8 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { Search, Bell, Leaf, User, Bookmark, Settings as SettingsIcon, LogOut } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import defaultAvatar from '../../assets/default-avatar.png';
+import { useAuth } from '../../context/AuthContext';
 
 export function Header() {
+  const { user, logout } = useAuth();
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -27,23 +29,29 @@ export function Header() {
       const settingsStr = localStorage.getItem('bhu_settings');
       if (settingsStr) {
         const p = JSON.parse(settingsStr);
-        setProfileName(p.profileName ?? 'Suriya N.');
-        setProfileRole(p.profileRole ?? 'Researcher');
-        setProfileAvatar(p.profileAvatar || null);
         setSearchScope(p.searchScope ?? 'All');
         setEnableHistory(p.searchHistory ?? true);
+        if (p.profileAvatar) setProfileAvatar(p.profileAvatar);
+        else setProfileAvatar(null);
       }
     };
     applySettings();
     window.addEventListener('bhu_settings_changed', applySettings);
     return () => window.removeEventListener('bhu_settings_changed', applySettings);
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      setProfileName(user.full_name || user.username);
+      setProfileRole(user.role || 'User');
+    }
+  }, [user]);
   useEffect(() => {
     const saved = localStorage.getItem('bhu_notifications');
     if (saved) {
       setUnreadCount(JSON.parse(saved).filter((n: any) => !n.read).length);
     } else {
-      setUnreadCount(3); // default from INITIAL_DATA
+      setUnreadCount(0);
     }
     
     // listen for local storage changes from Notifications page
@@ -274,16 +282,7 @@ export function Header() {
               <button 
                 onClick={() => {
                   setProfileOpen(false);
-                  const saved = localStorage.getItem('bhu_settings');
-                  if (saved) {
-                    const p = JSON.parse(saved);
-                    delete p.profileName;
-                    delete p.profileEmail;
-                    delete p.profileRole;
-                    delete p.profileAvatar;
-                    localStorage.setItem('bhu_settings', JSON.stringify(p));
-                  }
-                  window.dispatchEvent(new Event('bhu_settings_changed'));
+                  logout();
                   navigate('/');
                 }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-sm font-bold text-red-600 rounded-lg hover:bg-red-50 transition-colors"

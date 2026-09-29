@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { FileText, Loader2, Sparkles } from 'lucide-react';
+import { fetchApi } from '../services/api';
 
 export function Reports() {
   const [report, setReport] = useState<any>(null);
@@ -8,15 +9,13 @@ export function Reports() {
   const generateReport = async () => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:8000/api/reports/generate', {
+      const data = await fetchApi<any>('/reports/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           region: "Telangana (Hyderabad Peri-Urban)",
           topic: "Agricultural Land Conversion & Peri-Urban Sprawl Mitigation"
         })
       });
-      const data = await res.json();
       if (data.status === 'SUCCESS') setReport(data.report);
     } catch (err) {
       console.error(err);

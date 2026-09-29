@@ -1,27 +1,65 @@
 import { useState, useEffect } from 'react';
-import { Users, FileText, Plus, MessageSquare, History } from 'lucide-react';
+import { Users, FileText, Plus, MessageSquare, History, Loader2, Database, Map, Beaker } from 'lucide-react';
+import { fetchApi } from '../services/api';
 
 export function Workspaces() {
   const [workspaces, setWorkspaces] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedWorkspace, setSelectedWorkspace] = useState<any>(null);
+  const [creating, setCreating] = useState(false);
 
-  useEffect(() => {
-    fetch('http://localhost:8000/api/workspace')
-      .then(res => res.json())
-      .then(data => {
-        if (data.status === 'SUCCESS') setWorkspaces(data.workspaces);
+  const loadWorkspaces = () => {
+    setLoading(true);
+    fetchApi<any>('/workspaces/')
+      .then(res => {
+        if (res.status === 'SUCCESS') setWorkspaces(res.workspaces || []);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadWorkspaces();
   }, []);
 
-  const handleCreateWorkspace = () => {
-    alert("Creating new workspace...");
+  const handleCreateWorkspace = async () => {
+    const name = window.prompt("Enter workspace name:");
+    if (!name) return;
+    const description = window.prompt("Enter workspace description (optional):") || "";
+    
+    setCreating(true);
+    try {
+      const res = await fetchApi<any>('/workspaces/', {
+        method: 'POST',
+        body: JSON.stringify({ name, description, is_public: false })
+      });
+      if (res.status === 'SUCCESS') {
+        loadWorkspaces();
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to create workspace. Check console.");
+    } finally {
+      setCreating(false);
+    }
   };
 
   const handleInvite = () => {
-    alert("Invite member modal opened.");
+    alert("Invite member feature is not supported in the current backend phase.");
+  };
+
+  const selectWorkspace = async (ws: any) => {
+    try {
+      const res = await fetchApi<any>(`/workspaces/${ws.id}`);
+      if (res.status === 'SUCCESS') {
+        setSelectedWorkspace(res.workspace);
+      } else {
+        setSelectedWorkspace(ws);
+      }
+    } catch (err) {
+      console.error(err);
+      setSelectedWorkspace(ws);
+    }
   };
 
   if (selectedWorkspace) {
@@ -49,9 +87,35 @@ export function Workspaces() {
               <h2 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
                 <FileText className="w-4 h-4 text-gov-saffron" /> Shared Resources & Documents
               </h2>
-              <div className="text-sm text-slate-500 italic p-8 text-center border-2 border-dashed border-slate-100 rounded">
-                No items in this workspace yet. Click to upload datasets or policies.
-              </div>
+              {(!selectedWorkspace.items || selectedWorkspace.items.length === 0) ? (
+                <div className="text-sm text-slate-500 italic p-8 text-center border-2 border-dashed border-slate-100 rounded">
+                  No items in this workspace yet.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {selectedWorkspace.items.map((item: any) => {
+                    let Icon = FileText;
+                    if (item.item_type === 'dataset') Icon = Database;
+                    if (item.item_type === 'scenario') Icon = Beaker;
+                    if (item.item_type === 'query') Icon = Map;
+
+                    return (
+                      <div key={item.id} className="flex items-center justify-between p-3 border border-slate-100 rounded-lg hover:bg-slate-50 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center text-gov-blue">
+                            <Icon className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className="text-sm font-bold text-slate-800">Item {item.item_id} ({item.item_type})</div>
+                            <div className="text-xs text-slate-500">{item.notes || 'No description provided'}</div>
+                          </div>
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-medium">{new Date(item.added_at).toLocaleDateString()}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm">
@@ -79,19 +143,24 @@ export function Workspaces() {
               <h2 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
                 <Users className="w-4 h-4 text-slate-500" /> Members
               </h2>
-              <div className="flex items-center justify-between text-sm py-2 border-b border-slate-100 last:border-0">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-slate-200"></div>
-                  <span className="font-medium text-slate-700">You (Owner)</span>
+              {selectedWorkspace.members ? (
+                selectedWorkspace.members.map((m: any) => (
+                  <div key={m.id} className="flex items-center justify-between text-sm py-2 border-b border-slate-100 last:border-0">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600">{m.full_name[0]}</div>
+                      <span className="font-medium text-slate-700">{m.full_name}</span>
+                    </div>
+                    <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded">{m.role}</span>
+                  </div>
+                ))
+              ) : (
+                <div className="flex items-center justify-between text-sm py-2 border-b border-slate-100 last:border-0">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-slate-200"></div>
+                    <span className="font-medium text-slate-700">Owner</span>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center justify-between text-sm py-2 border-b border-slate-100 last:border-0">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-slate-200"></div>
-                  <span className="font-medium text-slate-700">Jane Doe</span>
-                </div>
-                <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded">Contributor</span>
-              </div>
+              )}
             </div>
 
             <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm">
@@ -122,8 +191,9 @@ export function Workspaces() {
           </h1>
           <p className="text-slate-500 text-sm mt-1">Create secure environments for multi-disciplinary policy research.</p>
         </div>
-        <button onClick={handleCreateWorkspace} className="bg-gov-blue text-white px-4 py-2 rounded text-sm font-medium hover:bg-gov-navy transition-colors flex items-center gap-2">
-          <Plus className="w-4 h-4" /> New Workspace
+        <button onClick={handleCreateWorkspace} disabled={creating} className="bg-gov-blue text-white px-4 py-2 rounded text-sm font-medium hover:bg-gov-navy transition-colors flex items-center gap-2 disabled:bg-slate-300">
+          {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} 
+          {creating ? 'Creating...' : 'New Workspace'}
         </button>
       </div>
 
@@ -144,7 +214,7 @@ export function Workspaces() {
           {workspaces.map(ws => (
             <div 
               key={ws.id} 
-              onClick={() => setSelectedWorkspace(ws)}
+              onClick={() => selectWorkspace(ws)}
               className="bg-white p-5 rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer flex flex-col"
             >
               <div className="flex items-center justify-between mb-2">

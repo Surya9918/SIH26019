@@ -1,28 +1,84 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { FlaskConical, Play, Save, Activity, Settings2, Download } from 'lucide-react';
 import { fetchApi } from '../services/api';
 
 export function PolicyLab() {
   const [params, setParams] = useState({
-    urban_growth_rate: 2.5,
+    urban_growth_rate: 4.0,
     buffer_zone_km: 5.0,
     tod_density_factor: 1.5,
   });
   const [running, setRunning] = useState(false);
   const [results, setResults] = useState<any>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleSimulate = async () => {
+  const runSimulation = useCallback(async (currentParams: typeof params) => {
     setRunning(true);
     try {
       const res = await fetchApi<any>('/scenarios/simulate', {
         method: 'POST',
-        body: JSON.stringify({ parameters: params })
+        body: JSON.stringify({
+          parameters: currentParams,
+          state: "Telangana",
+          district: "Rangareddy",
+          baseline_year: 2026,
+          target_year: 2035
+        })
       });
-      setResults(res.simulation);
+      if (res.simulation && res.simulation.status !== 'unavailable') {
+        setResults(res.simulation);
+      }
     } catch (error) {
       console.error(error);
     } finally {
       setRunning(false);
+    }
+  }, []);
+
+  // Auto-run simulation on mount and whenever params change (debounced)
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      runSimulation(params);
+    }, 600);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [params, runSimulation]);
+
+  const handleSimulate = () => runSimulation(params);
+
+  const handleSaveConfiguration = async () => {
+    if (!results) {
+      alert("Please run a simulation first before saving.");
+      return;
+    }
+    const title = window.prompt("Enter scenario title:");
+    if (!title) return;
+    const description = window.prompt("Enter description (optional):") || "";
+    
+    try {
+      const res = await fetchApi<any>('/scenarios/save', {
+        method: 'POST',
+        body: JSON.stringify({
+          title,
+          description,
+          state: "Telangana",
+          district: "Rangareddy",
+          baseline_year: 2026,
+          target_year: 2035,
+          parameters: params,
+          results: results
+        })
+      });
+      if (res.status === 'SUCCESS') {
+        alert("Configuration saved successfully!");
+      } else {
+        alert("Failed to save configuration.");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Error saving configuration.");
     }
   };
 
@@ -36,7 +92,7 @@ export function PolicyLab() {
           </p>
         </div>
         <div className="flex gap-3">
-          <button className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold flex items-center gap-2 shadow-sm hover:bg-slate-50 transition-colors">
+          <button onClick={handleSaveConfiguration} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold flex items-center gap-2 shadow-sm hover:bg-slate-50 transition-colors">
             <Save className="w-4 h-4" /> Save Configuration
           </button>
         </div>

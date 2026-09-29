@@ -50,7 +50,7 @@ export function AiEvidence() {
     try {
       const res = await fetchApi<any>('/rag/query', {
         method: 'POST',
-        body: JSON.stringify({ query: userMessage.content, llm_mode: "STRICT_EVIDENCE_RAG" })
+        body: JSON.stringify({ query: userMessage.content })
       });
       
       setMessages(prev => [...prev, {

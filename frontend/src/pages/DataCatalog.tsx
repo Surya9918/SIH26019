@@ -1,18 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Database, Download, ExternalLink } from 'lucide-react';
+import { fetchApi } from '../services/api';
 
 export function DataCatalog() {
   const [datasets, setDatasets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/datasets/')
-      .then(res => res.json())
+    fetchApi<any>('/datasets/')
       .then(data => {
         if (data.status === 'SUCCESS') setDatasets(data.datasets);
-        setLoading(false);
       })
-      .catch(console.error);
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }, []);
 
   return (
@@ -43,10 +43,10 @@ export function DataCatalog() {
                 </div>
               </div>
               <div className="flex md:flex-col gap-2 shrink-0">
-                <button className="flex items-center justify-center gap-2 bg-gov-blue text-white px-4 py-2 rounded text-sm hover:bg-gov-navy transition-colors">
+                <button onClick={() => alert("Download is currently unavailable. Contact Administrator.")} className="flex items-center justify-center gap-2 bg-gov-blue text-white px-4 py-2 rounded text-sm hover:bg-gov-navy transition-colors">
                   <Download className="w-4 h-4" /> Download
                 </button>
-                <button className="flex items-center justify-center gap-2 border border-slate-300 text-slate-700 px-4 py-2 rounded text-sm hover:bg-slate-50 transition-colors">
+                <button onClick={() => alert("API View is currently unavailable.")} className="flex items-center justify-center gap-2 border border-slate-300 text-slate-700 px-4 py-2 rounded text-sm hover:bg-slate-50 transition-colors">
                   <ExternalLink className="w-4 h-4" /> View API
                 </button>
               </div>

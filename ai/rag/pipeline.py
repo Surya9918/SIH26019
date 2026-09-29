@@ -12,6 +12,7 @@ class OpenAILLMAdapter(LLMAdapter):
         
     def generate_answer(self, query: str, citations: List[Dict]) -> Dict[str, Any]:
         try:
+            import openai
             from openai import OpenAI
             client = OpenAI(api_key=self.api_key)
             
@@ -43,7 +44,11 @@ class OpenAILLMAdapter(LLMAdapter):
         except ImportError:
             # Fallback if openai is still somehow not installed despite requirements
             return self._mock_generate(query, citations)
-            
+        except openai.OpenAIError as e:
+            from backend.core.config import settings
+            if settings.DEMO_MODE:
+                return DemoLLMAdapter().generate_answer(query, citations)
+            raise e
     def _mock_generate(self, query: str, citations: List[Dict]) -> Dict[str, Any]:
         claims = []
         for c in citations:

@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { formatTimeAgo } from '../utils/time';
 import defaultAvatar from '../assets/default-avatar.png';
+import { useAuth } from '../context/AuthContext';
 
 export function Profile() {
+  const { user } = useAuth();
   const [profileName, setProfileName] = useState('Suriya N.');
   const [profileRole, setProfileRole] = useState('Researcher');
   const [profileEmail, setProfileEmail] = useState('suriya.n@research.gov.in');
@@ -12,13 +14,15 @@ export function Profile() {
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
   useEffect(() => {
+    if (user) {
+      setProfileName(user.full_name || user.username);
+      setProfileRole(user.role || 'User');
+      setProfileEmail(user.email);
+    }
     const applySettings = () => {
       const settingsStr = localStorage.getItem('bhu_settings');
       if (settingsStr) {
         const p = JSON.parse(settingsStr);
-        setProfileName(p.profileName ?? 'Suriya N.');
-        setProfileRole(p.profileRole ?? 'Researcher');
-        setProfileEmail(p.profileEmail ?? 'suriya.n@research.gov.in');
         if (p.profileAvatar) setProfileAvatar(p.profileAvatar);
         else setProfileAvatar(null);
       }
