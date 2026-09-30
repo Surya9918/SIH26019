@@ -52,6 +52,28 @@ class DatabaseManager:
                 with open(SCHEMA_FILE, "r", encoding="utf-8") as f:
                     schema_sql = f.read()
                 conn.executescript(schema_sql)
+            
+            # Automatically seed essential demo users on fresh setup
+            try:
+                cursor = conn.execute("SELECT COUNT(*) FROM users")
+                user_count = cursor.fetchone()[0]
+                if user_count == 0:
+                    from backend.auth.security import hash_password
+                    default_users = [
+                        ("admin", "admin@landgovernance.gov.in", hash_password("AdminPass@2026"), "Dr. Rajesh Sharma", "Administrator", "Ministry of Rural Development"),
+                        ("researcher", "researcher@cbit.ac.in", hash_password("ResearcherPass@2026"), "Surya Saketharam Nallam", "Researcher", "Chaitanya Bharathi Institute of Technology"),
+                        ("aditya", "adityakollapudi@gmail.com", hash_password("AdityaPass@2026"), "Aditya Kollapudi", "Researcher", "Chaitanya Bharathi Institute of Technology"),
+                        ("analyst", "analyst@niti.gov.in", hash_password("PolicyPass@2026"), "Priya Venkat", "Policy Analyst", "NITI Aayog Land Policy Cell"),
+                        ("official", "official@telangana.gov.in", hash_password("OfficialPass@2026"), "K. Rama Rao", "Government Official", "Department of Land Administration, Telangana"),
+                        ("public", "citizen@gmail.com", hash_password("PublicPass@2026"), "Arun Kumar", "Public User", "General Public")
+                    ]
+                    for u in default_users:
+                        conn.execute(
+                            "INSERT INTO users (username, email, hashed_password, full_name, role, organization) VALUES (?, ?, ?, ?, ?, ?)",
+                            u
+                        )
+            except Exception:
+                pass
 
     def execute_query(self, query: str, params: tuple = ()) -> List[Dict[str, Any]]:
         with self.session() as conn:

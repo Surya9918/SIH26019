@@ -95,7 +95,37 @@ export function Login() {
           </button>
         </form>
 
-        <div className="mt-8 text-center text-sm font-medium text-slate-500">
+        {/* Quick Demo Credentials */}
+        <div className="mt-6 pt-5 border-t border-slate-100">
+          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider text-center mb-2.5">
+            Quick Demo Login (1-Click Fill)
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => { setUsername('admin'); setPassword('AdminPass@2026'); setError(''); }}
+              className="px-2 py-1.5 rounded-lg bg-slate-50 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 border border-slate-200 text-[11px] font-bold text-slate-700 transition-all text-center"
+            >
+              Admin
+            </button>
+            <button
+              type="button"
+              onClick={() => { setUsername('researcher'); setPassword('ResearcherPass@2026'); setError(''); }}
+              className="px-2 py-1.5 rounded-lg bg-slate-50 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 border border-slate-200 text-[11px] font-bold text-slate-700 transition-all text-center"
+            >
+              Researcher
+            </button>
+            <button
+              type="button"
+              onClick={() => { setUsername('analyst'); setPassword('PolicyPass@2026'); setError(''); }}
+              className="px-2 py-1.5 rounded-lg bg-slate-50 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 border border-slate-200 text-[11px] font-bold text-slate-700 transition-all text-center"
+            >
+              Analyst
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-6 text-center text-sm font-medium text-slate-500">
           Don't have an account?{' '}
           <Link to="/signup" className="font-bold text-[#008B72] hover:text-[#00695C] transition-colors">
             Sign up now
